@@ -1136,13 +1136,13 @@ namespace RainMeadow
                 }
                 if (TeamBattleMode.isTeamBattleMode(arena, out var tb))
                 {
-                    if (tb.winningTeam != -1)
+                    if (tb.winningTeamIndex is not null)
                     {
                         self.headingLabel.text = self.Translate("<TEAMNAME> WIN!")
                             .Replace(
                                 "<TEAMNAME>",
                                 MatchmakingManager.currentInstance.FilterTeamName(
-                                    tb.teamNames[tb.winningTeam].ToUpper()
+                                    tb.teamNames[tb.winningTeamIndex.Value].ToUpper()
                                 )
                             );
                     }
@@ -2823,10 +2823,10 @@ namespace RainMeadow
                 string winnerName = "";
                 if (TeamBattleMode.isTeamBattleMode(arena, out var tb))
                 {
-                    if (tb.winningTeam != -1)
+                    if (tb.winningTeamIndex is not null)
                     {
                         winnerName = MatchmakingManager.currentInstance.FilterTeamName(
-                            tb.teamNames[tb.winningTeam].ToUpper()
+                            tb.teamNames[tb.winningTeamIndex.Value].ToUpper()
                         );
                         self.headingLabel.text = self.Translate("<TEAMNAME> WINS!")
                             .Replace("<TEAMNAME>",winnerName);
@@ -2843,7 +2843,7 @@ namespace RainMeadow
                             }
                             if (OnlineManager.lobby.clientSettings.TryGetValue(pl, out var clientSettings) && clientSettings.TryGetData<ArenaTeamClientSettings>(out var teamSettings))
                             {
-                                box.player.totScore = tb.teamScores[teamSettings.team];
+                                // box.player.totScore = tb.teamScores[teamSettings.team];
                             }
                         }
                     }

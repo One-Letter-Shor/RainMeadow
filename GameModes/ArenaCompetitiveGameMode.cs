@@ -803,7 +803,7 @@ namespace RainMeadow
             int profileColor = 0;
             for (int i = 0; i < arena.arenaSittingOnlineOrder.Count; i++)
             {
-                var currentPlayer = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, i);
+                OnlinePlayer? currentPlayer = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, i);
 
                 if (
                     ArenaHelpers.baseGameSlugcats.Contains(arena.avatarSettings.playingAs)

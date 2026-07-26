@@ -18,7 +18,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         public TabContainer.Tab? myTab;
         public OnlineTeamBattleSettingsInterface? myTeamBattleSettingInterface;
         public ConditionalWeakTable<ArenaPlayerBox, TeamBattlePlayerBox> playerBoxes = new();
-        public int winningTeam = -1, martyrsSpawn, outlawsSpawn, dragonslayersSpawn, chieftainsSpawn, roundSpawnPointCycler;
+        public int martyrsSpawn, outlawsSpawn, dragonslayersSpawn, chieftainsSpawn, roundSpawnPointCycler;
 
         public string martyrsTeamName = RainMeadow.rainMeadowOptions.MartyrTeamName.Value;
         public string outlawTeamNames = RainMeadow.rainMeadowOptions.OutlawsTeamName.Value;
@@ -94,7 +94,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
                 if (button is ArenaPlayerBox playerBox)
                 {
                     ArenaTeamClientSettings? teamSettings = ArenaHelpers.GetDataSettings<ArenaTeamClientSettings>(playerBox.profileIdentifier);
-                    playerBox.showRainbow = teamSettings?.team == winningTeam && winningTeam != -1;
+                    playerBox.showRainbow = teamSettings is not null && teamSettings.team == winningTeamIndex;
                     string symbolName = teamSettings != null ? teamIcons[teamSettings.team] : "pixel";
                     if (!playerBoxes.TryGetValue(playerBox, out TeamBattlePlayerBox teamBox) && playerBox.profileIdentifier != OnlineManager.lobby.owner)
                     {
@@ -131,7 +131,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         public override bool DidPlayerWinRainbow(ArenaMode arena, OnlinePlayer player)
         {
             ArenaTeamClientSettings? teamSettings = ArenaHelpers.GetDataSettings<ArenaTeamClientSettings>(player);
-            return base.DidPlayerWinRainbow(arena, player) || teamSettings?.team == winningTeam && winningTeam != -1;
+            return base.DidPlayerWinRainbow(arena, player) || teamSettings?.team == winningTeamIndex && winningTeamIndex != -1;
         }
 
         public override Dialog AddGameModeInfo(ArenaMode arena, Menu.Menu menu)

@@ -232,7 +232,6 @@ namespace RainMeadow
             Player attacker,
             Creature target)
         {
-            RainMeadow.Info($"{attacker} killed {target}");
             // Copy ArenaGameSession.Killing's guard clause
             if (self.sessionEnded || ModManager.MSC && attacker.AI is not null)
                 return;
@@ -258,13 +257,19 @@ namespace RainMeadow
                 RainMeadow.Warn($"A non-avatar creature ({target}) was killed by {attackerOCreature.owner} despite wildlife being off.");
                 return;
             }
-            if (!targetOCreature.isMine || !targetOCreature.isAvatar)
+            if (!attackerOCreature.isAvatar)
             {
-                RainMeadow.Info($"Target is not my avatar. Owner: {attackerOCreature.owner}. Returning early.");
+                RainMeadow.Info("Attacker is not an avatar. Returning early.");
+                return;
+            }
+            if (!targetOCreature.isMine)
+            {
+                RainMeadow.Info("Target is not mine. Returning early.");
                 return;
             }
 
 
+            // TODO: Some of this logic needs to be extracted to ArenaHelpers.
             IconSymbol.IconSymbolData trophy = CreatureSymbol.SymbolDataFromCreature(target.abstractCreature);
 
             // Handle Score
@@ -361,12 +366,12 @@ namespace RainMeadow
 
             if (attacker.abstractCreature.GetOnlineCreature() is not OnlineCreature attackerOCreature)
             {
-                RainMeadow.Error("Unable to find the attacker online creature.");
+                RainMeadow.Error("Unable to find attacker's online creature.");
                 return;
             }
             if (target.abstractCreature.GetOnlineCreature() is not OnlineCreature targetOCreature)
             {
-                RainMeadow.Error("Unable to find the target online creature.");
+                RainMeadow.Error("Unable to find target's online creature.");
                 return;
             }
             if (ArenaHelpers.FindArenaPlayerByOnlinePlayer(arenaOnline, attackerOCreature.owner) is not ArenaSitting.ArenaPlayer attackerArenaPlayer)
@@ -381,9 +386,9 @@ namespace RainMeadow
                 RainMeadow.Warn($"A non-avatar creature ({target}) was killed by {attackerOCreature.owner} despite wildlife being off.");
                 return;
             }
-            if (!attackerOCreature.isMine)
+            if (!attackerOCreature.isMine || !attackerOCreature.isAvatar)
             {
-                RainMeadow.Info($"Attacker ({attackerOCreature.owner}) is not me. Returning early.");
+                RainMeadow.Info("Attacker is not my avatar. Returning early.");
                 return;
             }
             if (!targetOCreature.isAvatar)
@@ -395,7 +400,7 @@ namespace RainMeadow
             {
                 RainMeadow.Info(
                     $"Target ({targetOCreature.owner}) is going to die or is already" +
-                    $"dead, which kill scoring is handled elsewhere. Returning early."
+                    $"dead. Kill scoring is handled elsewhere. Returning early."
                 );
                 return;
             }
@@ -1139,6 +1144,7 @@ namespace RainMeadow
         {
             UpdateArenaSittingFinalStats(arena, self);
 
+            // TODO: Does this need to be moved to On_ArenaSitting_SessionEnded?
             if (self.players.Count <= 1)
                 return self.players;
 
@@ -1213,7 +1219,7 @@ namespace RainMeadow
             }
 
             // Winners must be handled here to ensure that every other player's stats have been updated.
-            List<ArenaSitting.ArenaPlayer> winners = DetermineWinnersOfArenaSession(arenaOnline, arenaSession);
+            List<ArenaSitting.ArenaPlayer> winners = DetermineArenaSessionWinners(arenaOnline, arenaSession);
 
             foreach (ArenaSitting.ArenaPlayer arenaPlayer in winners)
             {
@@ -1240,7 +1246,7 @@ namespace RainMeadow
             arenaSitting.players
                 .ForEach(arenaPlayer => arenaPlayer.winner = false);
 
-            DetermineWinnersOfArenaSitting(arenaOnline, arenaSitting)
+            DetermineArenaSittingWinners(arenaOnline, arenaSitting)
                 .ForEach(arenaPlayer => arenaPlayer.winner = true);
         }
 
@@ -1288,7 +1294,8 @@ namespace RainMeadow
             return orig(self, a, b);
         }
 
-        public virtual List<ArenaSitting.ArenaPlayer> DetermineWinnersOfArenaSession(
+        // TODO: Name this update winners rather than return who should be winners.
+        public virtual List<ArenaSitting.ArenaPlayer> DetermineArenaSessionWinners(
             ArenaOnlineGameMode arenaOnline,
             ArenaGameSession arenaSession)
         {
@@ -1303,7 +1310,8 @@ namespace RainMeadow
                 : [];
         }
 
-        public virtual List<ArenaSitting.ArenaPlayer> DetermineWinnersOfArenaSitting(
+        // TODO: Name this update winners rather than return who should be winners.
+        public virtual List<ArenaSitting.ArenaPlayer> DetermineArenaSittingWinners(
             ArenaOnlineGameMode arenaOnline,
             ArenaSitting arenaSitting)
         {

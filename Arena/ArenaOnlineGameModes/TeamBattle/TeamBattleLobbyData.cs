@@ -21,7 +21,7 @@ namespace RainMeadow
             [OnlineFieldHalf]
             public float lerp;
             [OnlineField]
-            public int winningTeam;
+            public int winningTeamIndex;
             [OnlineField]
             public int martyrs;
             [OnlineField]
@@ -67,7 +67,7 @@ namespace RainMeadow
                         outlawsName = teamBattleMode.teamNames[1];
                         dragonslayersName = teamBattleMode.teamNames[2];
                         chieftainsName = teamBattleMode.teamNames[3];
-                        winningTeam = teamBattleMode.winningTeam;
+                        winningTeamIndex = teamBattleMode.winningTeamIndex ?? -1;
                         martyrs = teamBattleMode.martyrsSpawn;
                         outlaws = teamBattleMode.outlawsSpawn;
                         dragonslayers = teamBattleMode.dragonslayersSpawn;
@@ -98,7 +98,9 @@ namespace RainMeadow
                         teamBattleMode.teamNames[1] = outlawsName;
                         teamBattleMode.teamNames[2] = dragonslayersName;
                         teamBattleMode.teamNames[3] = chieftainsName;
-                        teamBattleMode.winningTeam = winningTeam;
+                        teamBattleMode.winningTeamIndex = winningTeamIndex == -1
+                            ? null
+                            : winningTeamIndex;
                         teamBattleMode.martyrsSpawn = martyrs;
                         teamBattleMode.outlawsSpawn = outlaws;
                         teamBattleMode.dragonslayersSpawn = dragonslayers;
