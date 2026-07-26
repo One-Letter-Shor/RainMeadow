@@ -183,7 +183,7 @@ namespace RainMeadow
             
             DrownHooks();
         }
-        
+
         // Restrict Artificer's parry and stun range in arena
         private const float VANILLA_ARTI_PARRY_RANGE = 300f;
         private const float VANILLA_ARTI_STUN_RANGE = 200f;
@@ -2432,6 +2432,7 @@ namespace RainMeadow
 
                 self.outsidePlayersCountAsDead = false; // Prevent Rain World from killing players in dens once the session ends.
                 arena.externalArenaGameMode.On_ArenaGameSession_ctor(arena, orig, self, game);
+                ChatLogManager.LogSystemMessage(Utils.Translate("Starting match in") + " " + MultiplayerUnlocks.LevelDisplayName(self.arenaSitting.GetCurrentLevel), ChatLogManager.SystemMessageType.StartOfRound);
             }
         }
 
@@ -2819,27 +2820,16 @@ namespace RainMeadow
                 );
                 self.pages[0].subObjects.Add(exitButton);
 
-                if (!TeamBattleMode.isTeamBattleMode(arena, out _))
-                {
-                    var winningResult = self.result.FirstOrDefault(x => x.winner);
-                    if (winningResult != null)
-                    {
-                        OnlinePlayer? pl = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, winningResult.playerNumber);
-                        self.headingLabel.text = self.Translate("<USERNAME> WINS!").Replace("<USERNAME>", MatchmakingManager.currentInstance.FilterTeamName(pl != null ? pl.id.DisplayName : "SESSION RESULTS"));
-                    }
-                }
-
+                string winnerName = "";
                 if (TeamBattleMode.isTeamBattleMode(arena, out var tb))
                 {
                     if (tb.winningTeam != -1)
                     {
+                        winnerName = MatchmakingManager.currentInstance.FilterTeamName(
+                            tb.teamNames[tb.winningTeam].ToUpper()
+                        );
                         self.headingLabel.text = self.Translate("<TEAMNAME> WINS!")
-                            .Replace(
-                                "<TEAMNAME>",
-                                MatchmakingManager.currentInstance.FilterTeamName(
-                                    tb.teamNames[tb.winningTeam].ToUpper()
-                                )
-                            );
+                            .Replace("<TEAMNAME>",winnerName);
                     }
 
                     if (arena.WinByScore)
@@ -2858,6 +2848,19 @@ namespace RainMeadow
                         }
                     }
                 }
+                else
+                {
+                    var winningResult = self.result.FirstOrDefault(x => x.winner);
+                    if (winningResult != null)
+                    {
+                        OnlinePlayer? pl = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, winningResult.playerNumber);
+                        winnerName = pl != null ? pl.id.DisplayName : "";
+                        self.headingLabel.text = self.Translate("<USERNAME> WINS!").Replace("<USERNAME>", MatchmakingManager.currentInstance.FilterTeamName(winnerName != "" ? winnerName : "SESSION RESULTS"));
+                    }
+                }
+
+                RMOverlayHUD.GetOverlay()?.DestroyChatHUD();
+                ChatLogManager.LogSystemMessage(Utils.Translate("SESSION ENDED!") + " " + (winnerName == "" ? Utils.Translate("IT'S A DRAW!") : self.Translate("<USERNAME> WINS!").Replace("<USERNAME>", winnerName)), ChatLogManager.SystemMessageType.EndOfSession);
             }
         }
 
