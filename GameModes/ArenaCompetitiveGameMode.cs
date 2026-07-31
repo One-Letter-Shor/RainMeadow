@@ -60,18 +60,24 @@ namespace RainMeadow
 
         public bool enableMeadowCosmetics = RainMeadow.rainMeadowOptions.EnableMeadowCosmetics.Value;
 
-        public int foodScore = RainMeadow.rainMeadowOptions.ArenaFoodScore.Value;
+        public int foodScore       = RainMeadow.rainMeadowOptions.ArenaFoodScore.Value;
+        public int spearHitScore   = RainMeadow.rainMeadowOptions.ArenaSpearHitScore.Value;
+        public int killScore       = RainMeadow.rainMeadowOptions.ArenaKillScore.Value;
+        public int emptyDeathScore = RainMeadow.rainMeadowOptions.ArenaEmptyDeathScore.Value;
+        public int survivalScore   = RainMeadow.rainMeadowOptions.ArenaSurvivalScore.Value;
 
-        public int spearHitScore = RainMeadow.rainMeadowOptions.ArenaSpearHitScore.Value;
+        public int scoreToEnterDen = RainMeadow.rainMeadowOptions.ArenaScoreToEnterDen.Value;
 
-        public int killScore = RainMeadow.rainMeadowOptions.ArenaKillScore.Value;
-        public int aliveScore = RainMeadow.rainMeadowOptions.ArenaAliveScore.Value;
         public ArenaSetup.GameTypeSetup.DenEntryRule denEntryRule = RainMeadow.rainMeadowOptions.ArenaDenType.Value;
-        public int denScore = RainMeadow.rainMeadowOptions.ArenaDenScore.Value;
 
-        public int emptyKillTagScore = RainMeadow.rainMeadowOptions.ArenaDenScore.Value;
+        public bool WinByScore =>
+            session.GameTypeSetup.foodScore > 0 ||
+            session.GameTypeSetup.spearHitScore > 0 ||
+            session.GameTypeSetup.KillScore > 0 ||
+            session.GameTypeSetup.EmptyDeathScore  > 0 ||
+            session.GameTypeSetup.survivalScore > 0 ||
+            externalArenaGameMode is ArenaChallengeMode or DrownMode;
 
-        public bool WinByScore => killScore > 0 || aliveScore > 0 || emptyKillTagScore > 0 || spearHitScore > 0 || externalArenaGameMode is ArenaChallengeMode || externalArenaGameMode is DrownMode;
         public bool ShowScore = RainMeadow.rainMeadowOptions.ArenaShowScore.Value;
         public bool challengeDenEjection = RainMeadow.rainMeadowOptions.ChallengeDenEjection.Value;
 
@@ -208,9 +214,6 @@ namespace RainMeadow
             leaveForNextLevel = false;
             lobbyCountDown = 5;
             initiateLobbyCountdown = false;
-            spearHitScore = 0;
-            killScore = 0;
-            aliveScore = 0;
             hostLoadedOverlay = false;
 
             slugcatSelectMenuScenes = new Dictionary<string, MenuScene.SceneID>()
@@ -940,6 +943,7 @@ namespace RainMeadow
             {
                 externalArenaGameMode.ResetOnSessionEnd();
             }
+
             currentLevel = 0;
             arenaSittingOnlineOrder.Clear();
             playersReadiedUp.list.Clear();

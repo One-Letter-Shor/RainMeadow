@@ -102,13 +102,13 @@ public class RainMeadowOptions : OptionInterface
     public readonly Configurable<int> ArenaSpearHitScore;
     public readonly Configurable<int> ArenaKillScore;
 
-    public readonly Configurable<int> ArenaAliveScore;
-    public readonly Configurable<int> ArenaDenScore;
+    public readonly Configurable<int> ArenaSurvivalScore;
+    public readonly Configurable<int> ArenaScoreToEnterDen;
 
     public readonly Configurable<bool> ChallengeDenEjection;
 
 
-    public readonly Configurable<int> ArenaEmptyKillTagScore;
+    public readonly Configurable<int> ArenaEmptyDeathScore;
 
     public readonly Configurable<ArenaSetup.GameTypeSetup.DenEntryRule> ArenaDenType;
     public Configurable<RainMeadow.LogLevel> CurrentLogLevel;
@@ -278,14 +278,14 @@ public class RainMeadowOptions : OptionInterface
         ArenaFoodScore = config.Bind("ArenaFoodScore", 1);
         ArenaSpearHitScore = config.Bind("ArenaSpearHitScore", 0);
         ArenaKillScore = config.Bind("ArenaKillScore", 0);
-        ArenaAliveScore = config.Bind("ArenaAliveScore", 0);
-        ArenaDenScore = config.Bind("ArenaDenScore", 0);
+        ArenaSurvivalScore = config.Bind("ArenaAliveScore", 0);
+        ArenaScoreToEnterDen = config.Bind("ArenaDenScore", 0);
 
         ArenaDenType = config.Bind("ArenaDenType", ArenaSetup.GameTypeSetup.DenEntryRule.Standard);
         ChallengeID = config.Bind("ChallengeID", 1);
         CurrentLogLevel = config.Bind("logLevelSetting", RainMeadow.LogLevel.Info);
         ArenaUnhandledOptimizations = config.Bind("ArenaUnhandledOptimizations", false);
-        ArenaEmptyKillTagScore = config.Bind("ArenaEmptyKillTagScore", 0);
+        ArenaEmptyDeathScore = config.Bind("ArenaEmptyKillTagScore", 0);
         ChallengeDenEjection = config.Bind("ChallengeDenEjection", true);
         GlobalMute = config.Bind("GlobalMute", false);
         ArenaFlairActive = config.Bind("ArenaFlairActive", 0);

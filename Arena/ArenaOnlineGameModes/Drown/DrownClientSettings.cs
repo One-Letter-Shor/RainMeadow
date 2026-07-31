@@ -1,6 +1,6 @@
 using System;
-using UnityEngine;
 using RainMeadow;
+
 namespace Drown
 {
     public class ArenaDrownClientSettings : OnlineEntity.EntityData
@@ -17,26 +17,24 @@ namespace Drown
 
         public class State : EntityDataState
         {
-
             [OnlineField]
             public bool isInStore;
             [OnlineField]
             public bool iOpenedDen;
             public State() { }
 
-            public State(ArenaDrownClientSettings onlineEntity) : base()
+            public State(ArenaDrownClientSettings clientData)
             {
-
-                isInStore = onlineEntity.isInStore;
-                iOpenedDen = onlineEntity.iOpenedDen;
-
+                isInStore = clientData.isInStore;
+                iOpenedDen = clientData.iOpenedDen;
             }
 
             public override void ReadTo(OnlineEntity.EntityData entityData, OnlineEntity onlineEntity)
             {
-                var avatarSettings = (ArenaDrownClientSettings)entityData;
-                avatarSettings.isInStore = isInStore;
-                avatarSettings.iOpenedDen = iOpenedDen;
+                ArenaDrownClientSettings clientData = (ArenaDrownClientSettings)entityData;
+
+                clientData.isInStore = isInStore;
+                clientData.iOpenedDen = iOpenedDen;
             }
 
             public override Type GetDataType() => typeof(ArenaDrownClientSettings);

@@ -144,7 +144,7 @@ namespace RainMeadow
             public int killScore;
 
             [OnlineField(group = "arenaSetup")]
-            public int aliveScore;
+            public int survivalScore;
             [OnlineField(group = "arenaSetup")]
             public int denScore;
 
@@ -153,7 +153,7 @@ namespace RainMeadow
 
 
             [OnlineField(group = "arenaSetup")]
-            public int emptyKillScore;
+            public int emptyDeathScore;
 
 
             [OnlineField(group = "arenaSetup")]
@@ -306,15 +306,15 @@ namespace RainMeadow
                 friendlyFire = arenaOnline.friendlyFire;
                 enableOverseer = arenaOnline.enableOverseer;
 
-                foodScore = arenaOnline.foodScore;
+                foodScore       = arenaOnline.foodScore;
+                spearHitScore   = arenaOnline.spearHitScore;
+                killScore       = arenaOnline.killScore;
+                emptyDeathScore = arenaOnline.emptyDeathScore;
+                survivalScore   = arenaOnline.survivalScore;
 
-                spearHitScore = arenaOnline.spearHitScore;
-                killScore = arenaOnline.killScore;
-                aliveScore = arenaOnline.aliveScore;
                 denRule = arenaOnline.denEntryRule;
-                denScore = arenaOnline.denScore;
+                denScore = arenaOnline.scoreToEnterDen;
                 hostLoadedOverlay = arenaOnline.hostLoadedOverlay;
-                emptyKillScore = arenaOnline.emptyKillTagScore;
                 challengeDenEjection = arenaOnline.challengeDenEjection;
 
                 artiExplosionCapacity = arenaOnline.artiExplosionCount;
@@ -420,15 +420,15 @@ namespace RainMeadow
                 arenaOnline.friendlyFire = friendlyFire;
                 arenaOnline.enableOverseer = enableOverseer;
 
-                arenaOnline.foodScore = foodScore;
+                arenaOnline.foodScore       = foodScore;
+                arenaOnline.spearHitScore   = spearHitScore;
+                arenaOnline.killScore       = killScore;
+                arenaOnline.emptyDeathScore = emptyDeathScore;
+                arenaOnline.survivalScore   = survivalScore;
 
-                arenaOnline.spearHitScore = spearHitScore;
-                arenaOnline.killScore = killScore;
-                arenaOnline.aliveScore = aliveScore;
                 arenaOnline.denEntryRule = denRule;
-                arenaOnline.denScore = denScore;
+                arenaOnline.scoreToEnterDen = denScore;
                 arenaOnline.hostLoadedOverlay = hostLoadedOverlay;
-                arenaOnline.emptyKillTagScore = emptyKillScore;
                 arenaOnline.challengeDenEjection = challengeDenEjection;
 
 

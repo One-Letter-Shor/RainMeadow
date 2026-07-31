@@ -9,7 +9,6 @@ using System;
 using System.Text;
 using System.Reflection;
 using System.Collections;
-using DevInterface;
 
 namespace RainMeadow
 {
@@ -63,20 +62,27 @@ namespace RainMeadow
             arena.ResetAtNextLevel();
         }
 
-        public virtual void InitAsCustomGameType(ArenaOnlineGameMode arena, ArenaSetup.GameTypeSetup self)
+        // TODO: Make sure this sets everything that should be set.
+        public virtual void InitAsCustomGameType(ArenaOnlineGameMode arenaOnline, ArenaSetup.GameTypeSetup self)
         {
-            self.foodScore = arena.foodScore;
-            self.survivalScore = arena.aliveScore;
-            self.spearHitScore = arena.spearHitScore;
+            self.foodScore       = arenaOnline.foodScore;
+            self.spearHitScore   = arenaOnline.spearHitScore;
+            self.KillScore       = arenaOnline.killScore;
+            self.EmptyDeathScore = arenaOnline.emptyDeathScore;
+            self.survivalScore   = arenaOnline.survivalScore;
+
             self.repeatSingleLevelForever = false;
             self.savingAndLoadingSession = true;
-            self.denEntryRule = arena.denEntryRule;
+            // self.ScoreToEnterDen is just a getter. It is hooked elsewhere.
+            self.denEntryRule = arenaOnline.denEntryRule;
             self.rainWhenOnePlayerLeft = true;
             self.levelItems = true;
             self.fliesSpawn = false;
             self.saveCreatures = false;
             self.gameType = ArenaSetup.GameTypeID.Competitive;
-            self.spearsHitPlayers = arena.onlineArenaSettingsInterfaceeBool["SPEARSHIT"];
+            self.spearsHitPlayers = arenaOnline.onlineArenaSettingsInterfaceeBool["SPEARSHIT"];
+
+            SandboxSettingsInterface.DefaultKillScores(ref self.killScores);
         }
 
         public string PlayingAsText()
@@ -153,7 +159,7 @@ namespace RainMeadow
 
             if (self.killTag is null)
             {
-                int scoreChange = -arenaOnline.emptyKillTagScore;
+                int scoreChange = -arenaOnline.session.GameTypeSetup.EmptyDeathScore;
 
                 if (scoreChange != 0)
                 {
@@ -276,7 +282,10 @@ namespace RainMeadow
             int scoreChange = 0;
 
             if (targetOCreature.isAvatar)
+            {
                 scoreChange = arenaOnline.killScore;
+                RainMeadow.Info($"Avatar kill score {scoreChange}");
+            }
             else
             {
                 int index = MultiplayerUnlocks.SandboxUnlockForSymbolData(trophy).Index;
@@ -286,8 +295,10 @@ namespace RainMeadow
                 else
                 {
                     scoreChange = self.arenaSitting.gameTypeSetup.killScores[index];
+                    RainMeadow.Info($"Creature kill score {scoreChange}");
                 }
             }
+
 
             if (scoreChange != 0) // No need to waste network.
             {
@@ -399,7 +410,7 @@ namespace RainMeadow
             if (target.State is PlayerState { permanentDamageTracking: >= 1 })
             {
                 RainMeadow.Info(
-                    $"Target ({targetOCreature.owner}) is going to die or is already" +
+                    $"Target ({targetOCreature.owner}) is going to die or is already " +
                     $"dead. Kill scoring is handled elsewhere. Returning early."
                 );
                 return;
@@ -414,13 +425,13 @@ namespace RainMeadow
             }
 
 
-            // TODO: Theoretically, on high enough ping, you can get a ton of duplicate points.
-            ArenaRPCs.ModifyArenaPlayerScore(attackerArenaPlayer.playerNumber, arenaOnline.spearHitScore);
+            // TODO: Theoretically, on high enough ping, you can get a ton of duplicate points. (Maybe)
+            ArenaRPCs.ModifyArenaPlayerScore(attackerArenaPlayer.playerNumber, self.GameTypeSetup.spearHitScore);
 
             targetOCreature.BroadcastRPCInRoom(
                 ArenaRPCs.ModifyArenaPlayerScore,
                 attackerArenaPlayer.playerNumber,
-                arenaOnline.spearHitScore
+                self.GameTypeSetup.spearHitScore
             );
         }
 
@@ -545,7 +556,7 @@ namespace RainMeadow
         )
         {
             if (player.isMe
-                && OnlineManager.lobby.clientSettings.TryGetValue(player, out var cs) 
+                && OnlineManager.lobby.clientSettings.TryGetValue(player, out var cs)
                 && cs.chatUsernameColor is Color color)
             {
                 return color;
@@ -1076,7 +1087,7 @@ namespace RainMeadow
 
                     PlayerState playerState = (PlayerState)playerAC.state;
                     int newFoodInStomach = playerState.foodInStomach - previousFoodInStomach;
-                    int scoreChange = newFoodInStomach * arena.foodScore;
+                    int scoreChange = newFoodInStomach * arena.session.GameTypeSetup.foodScore;
 
                     if (onlineCreature.isMine && scoreChange != 0)
                     {
@@ -1136,7 +1147,6 @@ namespace RainMeadow
             );
         }
 
-        // TODO: Implement override in team battle.
         public virtual List<ArenaSitting.ArenaPlayer> On_ArenaSitting_FinalSittingResult(
             ArenaOnlineGameMode arena,
             On.ArenaSitting.orig_FinalSittingResult orig,
@@ -1170,18 +1180,27 @@ namespace RainMeadow
         }
 
         // TODO: Name this better.
+        /// <remarks>
+        /// This is guaranteed to fully update or reset all arena player stats.<br/>
+        /// (for example, every <see cref="ArenaSitting.ArenaPlayer"/>'s score will be
+        /// added to their total score OR their score and total score will be reset to 0.)
+        /// </remarks>
         public virtual void UpdateArenaSessionFinalStats(
             ArenaOnlineGameMode arenaOnline,
             ArenaGameSession arenaSession)
         {
             ArenaSitting arenaSitting = arenaSession.arenaSitting;
 
+            // TODO: Reconsider these loops. All clients should have to do is copy from lobby data and run the last (second) loop.
             foreach (ArenaSitting.ArenaPlayer arenaPlayer in arenaSitting.players)
             {
                 OnlinePlayer? onlinePlayer = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arenaOnline, arenaPlayer.playerNumber);
 
                 if (onlinePlayer is null)
+                {
+                    arenaOnline.ResetArenaPlayerStats(arenaPlayer);
                     continue;
+                }
                 if (arenaPlayer.playerClass == RainMeadow.Ext_SlugcatStatsName.OnlineOverseerSpectator)
                 {
                     arenaOnline.ResetArenaPlayerStats(arenaPlayer);
@@ -1204,7 +1223,7 @@ namespace RainMeadow
                         arenaPlayer.score += arenaSitting.gameTypeSetup.survivalScore;
                     }
                     else
-                        arenaPlayer.deaths++;
+                        arenaPlayer.deaths++; // TODO: This should be moved into the hook method probably.
 
                     arenaPlayer.allKills.AddRange(arenaPlayer.roundKills);
                     arenaPlayer.totScore += arenaPlayer.score;
@@ -1212,10 +1231,7 @@ namespace RainMeadow
                     arenaOnline.CopyStatsToLobbyData(arenaPlayer, onlinePlayer);
                 }
                 else
-                {
-                    // This works for both loops because clients only change non-lobby data stats.
                     arenaOnline.CopyStatsFromLobbyData(arenaPlayer, onlinePlayer);
-                }
             }
 
             // Winners must be handled here to ensure that every other player's stats have been updated.
@@ -1239,6 +1255,9 @@ namespace RainMeadow
         // TODO: Name this better.
         // This is called from On_ArenaSitting_FinalSittingResult which is just a getter. This may be called multiple
         // times per session end and therefore stats changing should be the same regardless of times called. TODO: Make this inline documentation
+        /// <remarks>
+        /// Guarantees that all arena player stats are either properly updated OR reset.
+        /// </remarks>
         public virtual void UpdateArenaSittingFinalStats(
             ArenaOnlineGameMode arenaOnline,
             ArenaSitting arenaSitting)
@@ -1301,12 +1320,23 @@ namespace RainMeadow
         {
             ArenaSitting arenaSitting = arenaSession.arenaSitting;
 
-            List<ArenaSitting.ArenaPlayer> aliveArenaPlayers = arenaSitting.players
-                .Where(aPlayer => aPlayer.alive)
+            List<ArenaSitting.ArenaPlayer> bestArenaPlayers = arenaSitting.players
+                .Where(arenaPlayer => arenaPlayer.playerClass != RainMeadow.Ext_SlugcatStatsName.OnlineOverseerSpectator)
                 .ToList();
 
-            return aliveArenaPlayers.Count == 1
-                ? aliveArenaPlayers
+            if (arenaOnline.WinByScore)
+            {
+                int highestScore = bestArenaPlayers.Max(arenaPlayer => arenaPlayer.score);
+                bestArenaPlayers.RemoveAll(arenaPlayer => arenaPlayer.score != highestScore);
+            }
+            else
+            {
+                int highestWins = bestArenaPlayers.Max(arenaPlayer => arenaPlayer.wins);
+                bestArenaPlayers.RemoveAll(arenaPlayer => arenaPlayer.wins != highestWins);
+            }
+
+            return bestArenaPlayers.Count == 1
+                ? bestArenaPlayers
                 : [];
         }
 
@@ -1324,13 +1354,13 @@ namespace RainMeadow
 
             if (arenaOnline.WinByScore)
             {
-                int highestTotalScore = bestArenaPlayers.Max(aPlayer => aPlayer.totScore);
-
+                int highestTotalScore = bestArenaPlayers.Max(arenaPlayer => arenaPlayer.totScore);
                 bestArenaPlayers.RemoveAll(arenaPlayer => arenaPlayer.totScore != highestTotalScore);
             }
             else
             {
-                bestArenaPlayers.RemoveAll(arenaPlayer => !arenaPlayer.alive);
+                int highestWins = bestArenaPlayers.Max(arenaPlayer => arenaPlayer.wins);
+                bestArenaPlayers.RemoveAll(arenaPlayer => arenaPlayer.wins != highestWins);
             }
 
             return bestArenaPlayers.Count == 1
@@ -1356,7 +1386,7 @@ namespace RainMeadow
             foreach (Creature.Grasp? grasp in player.grasps)
             {
                 if (grasp?.grabbed is IPlayerEdible playerEdible)
-                    score += playerEdible.FoodPoints * arenaOnline.foodScore;
+                    score += playerEdible.FoodPoints * arenaOnline.session.GameTypeSetup.foodScore;
             }
 
             return score;
@@ -1425,7 +1455,7 @@ namespace RainMeadow
 
         public List<ExternalArenaGameModeSetting> savedSettings =
         [
-            new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.aliveScore)),
+            new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.survivalScore)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.allowJoiningMidRound)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.amoebaControl)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.amoebaDuration)),
@@ -1435,9 +1465,9 @@ namespace RainMeadow
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.artiParryDistanceMult)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.artiParryLeniency)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.challengeDenEjection)),
-            new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.denScore)),
+            new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.scoreToEnterDen)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.disableMaul)),
-            new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.emptyKillTagScore)),
+            new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.emptyDeathScore)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.enableMeadowCosmetics)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.enableBees)),
             new ExternalArenaGameModeFieldSetting(nameof(ArenaOnlineGameMode.enableBombs)),

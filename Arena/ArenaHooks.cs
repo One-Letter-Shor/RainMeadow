@@ -363,7 +363,7 @@ namespace RainMeadow
         {
             if (isArenaMode(out var arena) && arena.externalArenaGameMode is not ArenaChallengeMode)
             {
-                return arena.denScore;
+                return arena.scoreToEnterDen;
             }
             return orig(self);
         }
@@ -2841,10 +2841,6 @@ namespace RainMeadow
                             {
                                 continue;
                             }
-                            if (OnlineManager.lobby.clientSettings.TryGetValue(pl, out var clientSettings) && clientSettings.TryGetData<ArenaTeamClientSettings>(out var teamSettings))
-                            {
-                                // box.player.totScore = tb.teamScores[teamSettings.team];
-                            }
                         }
                     }
                 }
@@ -3019,7 +3015,7 @@ namespace RainMeadow
                 if (
                     self.gameSession.GameTypeSetup.denEntryRule
                         == ArenaSetup.GameTypeSetup.DenEntryRule.Score
-                    && self.gameSession.ScoreOfPlayer(
+                    && self.gameSession.ScoreOfPlayer( // TODO: Change to ArenaPlayer.score
                         shortcutVessel.creature as Player,
                         inHands: true
                     ) < self.gameSession.GameTypeSetup.ScoreToEnterDen
