@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
-using System;
 using System.Text;
+using UnityEngine;
 
 namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 {
@@ -68,7 +68,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         }
 
         public override bool IsExitsOpen(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             On.ArenaBehaviors.ExitManager.orig_ExitsOpen orig,
             ArenaBehaviors.ExitManager self
         )
@@ -81,7 +81,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 
             if (self.gameSession.GameTypeSetup.denEntryRule == ArenaSetup.GameTypeSetup.DenEntryRule.Score)
             {
-                return orig(self) || (self.gameSession?.arenaSitting?.players?.Any(p => p?.score >= arena.denScore) ?? false);
+                return orig(self) || (self.gameSession?.arenaSitting?.players?.Any(p => p?.score >= arenaOnline.denScore) ?? false);
             }
 
             int playersStillStanding =
@@ -91,8 +91,8 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 
             if (
                 playersStillStanding == 1
-                && arena.arenaSittingOnlineOrder.Count > 1
-                && !arena.countdownInitiatedHoldFire
+                && arenaOnline.arenaSittingOnlineOrder.Count > 1
+                && !arenaOnline.countdownInitiatedHoldFire
             )
             {
                 return true;
@@ -103,7 +103,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
                 return true;
             }
 
-            if (playersStillStanding > 1 && arena.setupTime == 0)
+            if (playersStillStanding > 1 && arenaOnline.setupTime == 0)
             {
                 HashSet<int> aliveTeams = new HashSet<int>();
                 if (self.gameSession.Players != null)
@@ -162,9 +162,9 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return Utils.Translate("Prepare for war,") + " " + Utils.Translate(PlayingAsText());
         }
 
-        public override int SetTimer(ArenaOnlineGameMode arena)
+        public override int SetTimer(ArenaOnlineGameMode arenaOnline)
         {
-            return arena.setupTime = RainMeadow.rainMeadowOptions.ArenaCountDownTimer.Value;
+            return arenaOnline.setupTime = RainMeadow.rainMeadowOptions.ArenaCountDownTimer.Value;
         }
 
         public override int TimerDuration
@@ -173,32 +173,32 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             set { _timerDuration = value; }
         }
 
-        public override int TimerDirection(ArenaOnlineGameMode arena, int timer)
+        public override int TimerDirection(ArenaOnlineGameMode arenaOnline, int timer)
         {
-            return --arena.setupTime;
+            return --arenaOnline.setupTime;
         }
 
-        public override bool HoldFireWhileTimerIsActive(ArenaOnlineGameMode arena)
+        public override bool HoldFireWhileTimerIsActive(ArenaOnlineGameMode arenaOnline)
         {
-            if (arena.setupTime > 0)
+            if (arenaOnline.setupTime > 0)
             {
-                return arena.countdownInitiatedHoldFire = true;
+                return arenaOnline.countdownInitiatedHoldFire = true;
             }
             else
             {
-                return arena.countdownInitiatedHoldFire = false;
+                return arenaOnline.countdownInitiatedHoldFire = false;
             }
         }
 
 
         public override void ArenaSessionCtor(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             On.ArenaGameSession.orig_ctor orig,
             ArenaGameSession self,
             RainWorldGame game
         )
         {
-            base.ArenaSessionCtor(arena, orig, self, game);
+            base.ArenaSessionCtor(arenaOnline, orig, self, game);
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
             {
                 if (
@@ -207,8 +207,8 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
                         .TryGetData<ArenaTeamClientSettings>(out var t)
                 )
                 {
-                    arena.avatarSettings.bodyColor = Color.Lerp(
-                        arena.avatarSettings.bodyColor,
+                    arenaOnline.avatarSettings.bodyColor = Color.Lerp(
+                        arenaOnline.avatarSettings.bodyColor,
                         teamColors[t.team],
                         teamBattle.lerp
                     );
@@ -219,7 +219,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 
         public int CalculateTeamScoresAndWinner(
     IEnumerable<ArenaSitting.ArenaPlayer> players,
-    ArenaOnlineGameMode arena,
+    ArenaOnlineGameMode arenaOnline,
     bool WinByScore, bool winByRoundScore, bool finalOverlay)
         {
             HashSet<int> teamsRemaining = new HashSet<int>();
@@ -227,7 +227,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 
             foreach (var player in players)
             {
-                OnlinePlayer pl = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, player.playerNumber);
+                OnlinePlayer pl = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arenaOnline, player.playerNumber);
                 if (pl == null) continue;
 
                 if (OnlineManager.lobby.clientSettings.TryGetValue(pl, out var clientSettings) &&
@@ -240,7 +240,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
                         teamsRemaining.Add(team);
                     }
 
-                    arena.ReadFromStats(player, pl);
+                    arenaOnline.ReadFromStats(player, pl);
                     playerToTeam[player.playerNumber] = team; // Cache team assignment
 
                     if (WinByScore)
@@ -310,7 +310,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         }
 
         public override bool PlayerSittingResultSort(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             On.ArenaSitting.orig_PlayerSittingResultSort orig,
             ArenaSitting self,
             ArenaSitting.ArenaPlayer A,
@@ -320,11 +320,11 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
             {
                 OnlinePlayer? playerA = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(
-                    arena,
+                    arenaOnline,
                     A.playerNumber
                 );
                 OnlinePlayer? playerB = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(
-                    arena,
+                    arenaOnline,
                     B.playerNumber
                 );
 
@@ -367,18 +367,18 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return orig(self, A, B);
         }
 
-        public override List<ArenaSitting.ArenaPlayer> FinalSittingResult(ArenaOnlineGameMode arena, On.ArenaSitting.orig_FinalSittingResult orig, ArenaSitting self)
+        public override List<ArenaSitting.ArenaPlayer> FinalSittingResult(ArenaOnlineGameMode arenaOnline, On.ArenaSitting.orig_FinalSittingResult orig, ArenaSitting self)
         {
             var resultList = orig(self);
 
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
             {
-                teamBattle.winningTeam = CalculateTeamScoresAndWinner(resultList, arena, arena.WinByScore, false, true);
+                teamBattle.winningTeam = CalculateTeamScoresAndWinner(resultList, arenaOnline, arenaOnline.WinByScore, false, true);
 
                 resultList.Sort((a, b) =>
                 {
-                    OnlinePlayer? playerA = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, a.playerNumber);
-                    OnlinePlayer? playerB = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, b.playerNumber);
+                    OnlinePlayer? playerA = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arenaOnline, a.playerNumber);
+                    OnlinePlayer? playerB = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arenaOnline, b.playerNumber);
 
 
                     if (playerA != null && playerB != null)
@@ -403,8 +403,8 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 
                     // --- Tier 2: Individual Performance ---
                     // This sorts teammates against each other, AND sorts all losers against each other.
-                    int indStatA = arena.WinByScore ? a.totScore : a.wins;
-                    int indStatB = arena.WinByScore ? b.totScore : b.wins;
+                    int indStatA = arenaOnline.WinByScore ? a.totScore : a.wins;
+                    int indStatB = arenaOnline.WinByScore ? b.totScore : b.wins;
 
                     if (indStatA != indStatB)
                         return indStatB.CompareTo(indStatA);
@@ -417,7 +417,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         }
 
         public override bool PlayerSessionResultSort(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             On.ArenaSitting.orig_PlayerSessionResultSort orig,
             ArenaSitting self,
             ArenaSitting.ArenaPlayer A,
@@ -426,8 +426,8 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         {
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
             {
-                OnlinePlayer? playerA = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, A.playerNumber);
-                OnlinePlayer? playerB = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arena, B.playerNumber);
+                OnlinePlayer? playerA = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arenaOnline, A.playerNumber);
+                OnlinePlayer? playerB = ArenaHelpers.FindOnlinePlayerByFakePlayerNumber(arenaOnline, B.playerNumber);
 
                 if (playerA != null && playerB != null)
                 {
@@ -465,27 +465,27 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return orig(self, A, B);
         }
 
-        public override void ArenaSessionNextLevel(ArenaOnlineGameMode arena, On.ArenaSitting.orig_NextLevel orig, ArenaSitting self, ProcessManager process)
+        public override void ArenaSessionNextLevel(ArenaOnlineGameMode arenaOnline, On.ArenaSitting.orig_NextLevel orig, ArenaSitting self, ProcessManager process)
         {
-            base.ArenaSessionNextLevel(arena, orig, self, process);
+            base.ArenaSessionNextLevel(arenaOnline, orig, self, process);
             ClearSortingDictionaries();
         }
 
         public override void ArenaSessionEnded(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             On.ArenaSitting.orig_SessionEnded orig,
             ArenaSitting self,
             ArenaGameSession session
         )
         {
-            base.ArenaSessionEnded(arena, orig, self, session);
+            base.ArenaSessionEnded(arenaOnline, orig, self, session);
 
             if (IsTeamBattleMode(out TeamBattleMode teamBattle) && OnlineManager.lobby.isOwner)
                 teamBattle.roundSpawnPointCycler++;
         }
 
         public override void SpawnPlayer(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             ArenaGameSession self,
             Room room,
             List<int> suggestedDens
@@ -500,7 +500,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 
                 for (int j = 0; j < OnlineManager.players.Count; j++)
                 {
-                    if (arena.arenaSittingOnlineOrder.Contains(OnlineManager.players[j].inLobbyId))
+                    if (arenaOnline.arenaSittingOnlineOrder.Contains(OnlineManager.players[j].inLobbyId))
                     {
                         list2.Add(OnlineManager.players[j]);
                     }
@@ -589,10 +589,10 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
                 )
                 {
                     RainMeadow.Debug("Player spawned as Overseer");
-                    if (arena.enableOverseer)
+                    if (arenaOnline.enableOverseer)
                     {
                         SpawnPlayerOverseer(
-                            arena,
+                            arenaOnline,
                             self,
                             room,
                             randomExitIndex
@@ -602,7 +602,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
                 else
                 {
                     SpawnNonTransferableCreature(
-                        arena,
+                        arenaOnline,
                         self,
                         room,
                         randomExitIndex,
@@ -613,19 +613,19 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
                 self.playersSpawned = true;
                 if (OnlineManager.lobby.isOwner)
                 {
-                    arena.isInGame = true; // used for readied players at the beginning
-                    arena.leaveForNextLevel = false;
-                    arena.playersLateWaitingInLobbyForNextRound.Clear();
-                    arena.hasPermissionToRejoin = false;
+                    arenaOnline.isInGame = true; // used for readied players at the beginning
+                    arenaOnline.leaveForNextLevel = false;
+                    arenaOnline.playersLateWaitingInLobbyForNextRound.Clear();
+                    arenaOnline.hasPermissionToRejoin = false;
                 }
-                for (int x = 0; x < arena.arenaSittingOnlineOrder.Count; x++)
+                for (int x = 0; x < arenaOnline.arenaSittingOnlineOrder.Count; x++)
                 {
-                    OnlinePlayer? getPlayer = ArenaHelpers.FindOnlinePlayerByLobbyId(arena.arenaSittingOnlineOrder[x]);
+                    OnlinePlayer? getPlayer = ArenaHelpers.FindOnlinePlayerByLobbyId(arenaOnline.arenaSittingOnlineOrder[x]);
                     if (getPlayer != null)
                     {
                         if (OnlineManager.lobby.isOwner)
                         {
-                            arena.CheckToAddPlayerStatsToDicts(getPlayer);
+                            arenaOnline.CheckToAddPlayerStatsToDicts(getPlayer);
                         }
                         RainMeadow.Info($"RMEL;{getPlayer.id.DisplayName};CLASS;${ArenaHelpers.GetArenaClientSettings(getPlayer)?.playingAs}");
                         RainMeadow.Info($"RMEL;{getPlayer.id.DisplayName};TEAM;{teamNames[ArenaHelpers.GetDataSettings<ArenaTeamClientSettings>(getPlayer).team]}");
@@ -636,7 +636,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         }
 
         public override string AddIcon(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
@@ -644,9 +644,9 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         )
         {
 
-            if (base.AddIcon(arena, display, owner, customization, player) != "")
+            if (base.AddIcon(arenaOnline, display, owner, customization, player) != "")
             {
-                return base.AddIcon(arena, display, owner, customization, player);
+                return base.AddIcon(arenaOnline, display, owner, customization, player);
             }
 
             if (OnlineManager.lobby.clientSettings.TryGetValue(key: player, out _) == false)
@@ -666,7 +666,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         }
 
         public override Color IconColor(
-            ArenaOnlineGameMode arena,
+            ArenaOnlineGameMode arenaOnline,
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
@@ -701,9 +701,9 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return customization.bodyColor;
         }
 
-        public override string ExportLocalSettings(ArenaOnlineGameMode arena)
+        public override string ExportLocalSettings(ArenaOnlineGameMode arenaOnline)
         {
-            string baseExport = base.ExportLocalSettings(arena);
+            string baseExport = base.ExportLocalSettings(arenaOnline);
             string decodedBase = string.IsNullOrEmpty(baseExport) ? "" : Encoding.UTF8.GetString(Convert.FromBase64String(baseExport));
 
             var pairs = new List<string>
@@ -725,9 +725,9 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(combined));
         }
 
-        public override bool ImportLocalSettings(ArenaOnlineGameMode arena, string base64Data)
+        public override bool ImportLocalSettings(ArenaOnlineGameMode arenaOnline, string base64Data)
         {
-            bool success = base.ImportLocalSettings(arena, base64Data);
+            bool success = base.ImportLocalSettings(arenaOnline, base64Data);
             if (string.IsNullOrEmpty(base64Data)) return false;
             if (!success) return false;
 
