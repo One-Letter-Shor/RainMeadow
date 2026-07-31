@@ -8,12 +8,18 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
 {
     public partial class TeamBattleMode : ExternalArenaGameMode
     {
-        public static ArenaSetup.GameTypeID TeamBattle = new ArenaSetup.GameTypeID(
-            "Team Battle",
-            register: false
-        );
+        public static ArenaSetup.GameTypeID TeamBattle = new("Team Battle");
 
         public override ArenaSetup.GameTypeID GetGameModeId => TeamBattle;
+        private int _timerDuration;
+        public override int TimerDuration
+        {
+            get { return _timerDuration; }
+            set { _timerDuration = value; }
+        }
+        // used for finalresult organization
+        public Dictionary<int, int> teamScores = [];
+        public Dictionary<int, int> playerToTeam = []; // Cache for sorting
 
         /// <exception cref="InvalidOperationException">
         /// Thrown if the online game mode is <see cref="ArenaOnlineGameMode"/>
@@ -42,12 +48,6 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return false;
         }
 
-        private int _timerDuration;
-
-        // used for finalresult organization
-        public Dictionary<int, int> teamScores = [];
-        public Dictionary<int, int> playerToTeam = []; // Cache for sorting
-
         public void ClearSortingDictionaries()
         {
             teamScores.Clear();
@@ -70,8 +70,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         public override bool IsExitsOpen(
             ArenaOnlineGameMode arenaOnline,
             On.ArenaBehaviors.ExitManager.orig_ExitsOpen orig,
-            ArenaBehaviors.ExitManager self
-        )
+            ArenaBehaviors.ExitManager self)
         {
             if (self.gameSession.GameTypeSetup.denEntryRule == ArenaSetup.GameTypeSetup.DenEntryRule.Always)
             {
@@ -167,12 +166,6 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return arenaOnline.setupTime = RainMeadow.rainMeadowOptions.ArenaCountDownTimer.Value;
         }
 
-        public override int TimerDuration
-        {
-            get { return _timerDuration; }
-            set { _timerDuration = value; }
-        }
-
         public override int TimerDirection(ArenaOnlineGameMode arenaOnline, int timer)
         {
             return --arenaOnline.setupTime;
@@ -190,13 +183,11 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             }
         }
 
-
         public override void ArenaSessionCtor(
             ArenaOnlineGameMode arenaOnline,
             On.ArenaGameSession.orig_ctor orig,
             ArenaGameSession self,
-            RainWorldGame game
-        )
+            RainWorldGame game)
         {
             base.ArenaSessionCtor(arenaOnline, orig, self, game);
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
@@ -218,9 +209,11 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
         }
 
         public int CalculateTeamScoresAndWinner(
-    IEnumerable<ArenaSitting.ArenaPlayer> players,
-    ArenaOnlineGameMode arenaOnline,
-    bool WinByScore, bool winByRoundScore, bool finalOverlay)
+            IEnumerable<ArenaSitting.ArenaPlayer> players,
+            ArenaOnlineGameMode arenaOnline,
+            bool WinByScore,
+            bool winByRoundScore,
+            bool finalOverlay)
         {
             HashSet<int> teamsRemaining = new HashSet<int>();
             int finalOverlayWinner = -1;
@@ -314,8 +307,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             On.ArenaSitting.orig_PlayerSittingResultSort orig,
             ArenaSitting self,
             ArenaSitting.ArenaPlayer A,
-            ArenaSitting.ArenaPlayer B
-        )
+            ArenaSitting.ArenaPlayer B)
         {
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
             {
@@ -367,7 +359,10 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return orig(self, A, B);
         }
 
-        public override List<ArenaSitting.ArenaPlayer> FinalSittingResult(ArenaOnlineGameMode arenaOnline, On.ArenaSitting.orig_FinalSittingResult orig, ArenaSitting self)
+        public override List<ArenaSitting.ArenaPlayer> FinalSittingResult(
+            ArenaOnlineGameMode arenaOnline,
+            On.ArenaSitting.orig_FinalSittingResult orig,
+            ArenaSitting self)
         {
             var resultList = orig(self);
 
@@ -421,8 +416,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             On.ArenaSitting.orig_PlayerSessionResultSort orig,
             ArenaSitting self,
             ArenaSitting.ArenaPlayer A,
-            ArenaSitting.ArenaPlayer B
-        )
+            ArenaSitting.ArenaPlayer B)
         {
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
             {
@@ -465,7 +459,11 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return orig(self, A, B);
         }
 
-        public override void ArenaSessionNextLevel(ArenaOnlineGameMode arenaOnline, On.ArenaSitting.orig_NextLevel orig, ArenaSitting self, ProcessManager process)
+        public override void ArenaSessionNextLevel(
+            ArenaOnlineGameMode arenaOnline,
+            On.ArenaSitting.orig_NextLevel orig,
+            ArenaSitting self,
+            ProcessManager process)
         {
             base.ArenaSessionNextLevel(arenaOnline, orig, self, process);
             ClearSortingDictionaries();
@@ -475,8 +473,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             ArenaOnlineGameMode arenaOnline,
             On.ArenaSitting.orig_SessionEnded orig,
             ArenaSitting self,
-            ArenaGameSession session
-        )
+            ArenaGameSession session)
         {
             base.ArenaSessionEnded(arenaOnline, orig, self, session);
 
@@ -488,8 +485,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             ArenaOnlineGameMode arenaOnline,
             ArenaGameSession self,
             Room room,
-            List<int> suggestedDens
-        )
+            List<int> suggestedDens)
         {
             // Shameful copy-paste
             if (IsTeamBattleMode(out TeamBattleMode teamBattle))
@@ -640,8 +636,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
-            OnlinePlayer player
-        )
+            OnlinePlayer player)
         {
 
             if (base.AddIcon(arenaOnline, display, owner, customization, player) != "")
@@ -670,8 +665,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
-            OnlinePlayer player
-        )
+            OnlinePlayer player)
         {
             if (OnlineManager.lobby.clientSettings.TryGetValue(key: player, out _) == false)
             {

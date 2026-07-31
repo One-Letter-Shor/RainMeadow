@@ -7,26 +7,17 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
 {
     public partial class ArenaChallengeMode : ExternalArenaGameMode
     {
-        public static ArenaSetup.GameTypeID ChallengeMode = new ArenaSetup.GameTypeID(
-            "Challenge",
-            register: false
-        );
-
-        public int challengeID = RainMeadow.rainMeadowOptions.ChallengeID.Value;
-
-        private int _timerDuration;
+        public static ArenaSetup.GameTypeID ChallengeMode = new("Challenge");
 
         public override ArenaSetup.GameTypeID GetGameModeId => ChallengeMode;
-        public override bool ShowAddedScoreBetweenRoundsInOnlinePlayerUI { get => false; set { } }
-
-
-        public override void InitAsCustomGameType(ArenaOnlineGameMode arenaOnline, ArenaSetup.GameTypeSetup self)
+        private int _timerDuration;
+        public override int TimerDuration
         {
-            self.challengeID = challengeID;
-            self.gameType = DLCSharedEnums.GameTypeID.Challenge;
-            self.spearsHitPlayers = arenaOnline.onlineArenaSettingsInterfaceeBool["SPEARSHIT"];
-            SandboxSettingsInterface.DefaultKillScores(ref self.killScores);
+            get { return _timerDuration; }
+            set { _timerDuration = value; }
         }
+        public override bool ShowAddedScoreBetweenRoundsInOnlinePlayerUI { get => false; set { } }
+        public int challengeID = RainMeadow.rainMeadowOptions.ChallengeID.Value;
 
         /// <exception cref="InvalidOperationException">
         /// Thrown if the online game mode is <see cref="ArenaOnlineGameMode"/>
@@ -55,11 +46,20 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
             return false;
         }
 
+        public override void InitAsCustomGameType(
+            ArenaOnlineGameMode arenaOnline,
+            ArenaSetup.GameTypeSetup self)
+        {
+            self.challengeID = challengeID;
+            self.gameType = DLCSharedEnums.GameTypeID.Challenge;
+            self.spearsHitPlayers = arenaOnline.onlineArenaSettingsInterfaceeBool["SPEARSHIT"];
+            SandboxSettingsInterface.DefaultKillScores(ref self.killScores);
+        }
+
         public override bool IsExitsOpen(
             ArenaOnlineGameMode arenaOnline,
             On.ArenaBehaviors.ExitManager.orig_ExitsOpen orig,
-            ArenaBehaviors.ExitManager self
-        )
+            ArenaBehaviors.ExitManager self)
         {
             if (self.challengeCompleted)
             {
@@ -87,12 +87,6 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
             return 0;
         }
 
-        public override int TimerDuration
-        {
-            get { return _timerDuration; }
-            set { _timerDuration = value; }
-        }
-
         public override int TimerDirection(ArenaOnlineGameMode arenaOnline, int timer)
         {
             if (arenaOnline.ArenaSession?.chMeta?.secondaryWinMethod == MoreSlugcats.ChallengeInformation.ChallengeMeta.WinCondition.PROTECT || arenaOnline.ArenaSession?.chMeta?.secondaryWinMethod == MoreSlugcats.ChallengeInformation.ChallengeMeta.WinCondition.SURVIVE)
@@ -112,8 +106,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
             ArenaGameSession self,
             Player player,
             Creature target,
-            ArenaSitting.ArenaPlayer aPlayer
-        )
+            ArenaSitting.ArenaPlayer aPlayer)
         {
             aPlayer.AddSandboxScore(self.GameTypeSetup.spearHitScore);
         }
@@ -123,8 +116,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
-            OnlinePlayer player
-        )
+            OnlinePlayer player)
         {
             if (owner.clientSettings.owner == OnlineManager.lobby.owner)
             {
@@ -138,8 +130,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
-            OnlinePlayer player
-        )
+            OnlinePlayer player)
         {
             if (owner.PlayerConsideredDead)
             {
@@ -156,8 +147,6 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
 
             return base.IconColor(arenaOnline, display, owner, customization, player);
         }
-
-
 
         public override Dialog AddGameModeInfo(ArenaOnlineGameMode arenaOnline, Menu.Menu menu)
         {

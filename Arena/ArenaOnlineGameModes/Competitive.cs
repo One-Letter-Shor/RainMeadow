@@ -7,13 +7,15 @@ namespace RainMeadow
 {
     public class FFA : ExternalArenaGameMode
     {
-        public static ArenaSetup.GameTypeID FFAMode = new ArenaSetup.GameTypeID(
-            "Free For All",
-            register: false
-        );
+        public static ArenaSetup.GameTypeID FFAMode = new("Free For All");
 
+        public override ArenaSetup.GameTypeID GetGameModeId => FFAMode;
         private int _timerDuration;
-        public override ArenaSetup.GameTypeID GetGameModeId => FFA.FFAMode;
+        public override int TimerDuration
+        {
+            get { return _timerDuration; }
+            set { _timerDuration = value; }
+        }
 
         /// <exception cref="InvalidOperationException">
         /// Thrown if the online game mode is <see cref="ArenaOnlineGameMode"/>
@@ -45,8 +47,7 @@ namespace RainMeadow
         public override bool IsExitsOpen(
             ArenaOnlineGameMode arenaOnline,
             On.ArenaBehaviors.ExitManager.orig_ExitsOpen orig,
-            ArenaBehaviors.ExitManager self
-        )
+            ArenaBehaviors.ExitManager self)
         {
             if (self.gameSession.GameTypeSetup.denEntryRule == ArenaSetup.GameTypeSetup.DenEntryRule.Always)
             {
@@ -92,12 +93,6 @@ namespace RainMeadow
             return arenaOnline.setupTime = RainMeadow.rainMeadowOptions.ArenaCountDownTimer.Value;
         }
 
-        public override int TimerDuration
-        {
-            get { return _timerDuration; }
-            set { _timerDuration = value; }
-        }
-
         public override int TimerDirection(ArenaOnlineGameMode arenaOnline, int timer)
         {
             return --arenaOnline.setupTime;
@@ -120,8 +115,7 @@ namespace RainMeadow
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
-            OnlinePlayer player
-        )
+            OnlinePlayer player)
         {
 
             if (base.AddIcon(arenaOnline, display, owner, customization, player) != "")
@@ -145,8 +139,7 @@ namespace RainMeadow
             OnlinePlayerDisplay display,
             PlayerSpecificOnlineHud owner,
             SlugcatCustomization customization,
-            OnlinePlayer player
-        )
+            OnlinePlayer player)
         {
             if (owner.PlayerConsideredDead)
             {
