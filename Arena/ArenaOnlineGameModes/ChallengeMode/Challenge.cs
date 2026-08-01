@@ -56,7 +56,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
             SandboxSettingsInterface.DefaultKillScores(ref self.killScores);
         }
 
-        public override bool IsExitsOpen(
+        public override bool On_ArenaBehaviors_ExitManager_ExitsOpen(
             ArenaOnlineGameMode arenaOnline,
             On.ArenaBehaviors.ExitManager.orig_ExitsOpen orig,
             ArenaBehaviors.ExitManager self)
@@ -101,7 +101,7 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS
             return arenaOnline.countdownInitiatedHoldFire = false;
         }
 
-        public override void LandSpear(
+        public override void On_ArenaGameSession_PlayerLandSpear(
             ArenaOnlineGameMode arenaOnline,
             ArenaGameSession self,
             Player player,
