@@ -231,10 +231,11 @@ namespace RainMeadow
 
         public override void On_HUD_HUD_InitMultiplayerHud(
             ArenaOnlineGameMode arenaOnline,
+            On.HUD.HUD.orig_InitMultiplayerHud orig,
             HUD.HUD self,
             ArenaGameSession session)
         {
-            base.On_HUD_HUD_InitMultiplayerHud(arenaOnline, self, session);
+            base.On_HUD_HUD_InitMultiplayerHud(arenaOnline, orig, self, session);
             self.AddPart(new StoreHUD(self, session.game.cameras[0], this));
         }
 
