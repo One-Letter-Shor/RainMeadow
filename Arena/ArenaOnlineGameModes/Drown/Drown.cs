@@ -122,11 +122,6 @@ namespace RainMeadow
 
         }
 
-        public override bool SpawnBatflies(FliesWorldAI self, int spawnRoom)
-        {
-            return false;
-        }
-
         public override void On_ArenaGameSession_ctor(
             ArenaOnlineGameMode arenaOnline,
             On.ArenaGameSession.orig_ctor orig,
@@ -169,7 +164,6 @@ namespace RainMeadow
             self.EmptyDeathScore = 0;
 
             self.rainWhenOnePlayerLeft = false;
-            self.fliesSpawn = true;
         }
 
         public override string TimerText()

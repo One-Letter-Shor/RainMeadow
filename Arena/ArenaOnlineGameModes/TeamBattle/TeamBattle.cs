@@ -182,11 +182,6 @@ namespace RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle
             return orig(self);
         }
 
-        public override bool SpawnBatflies(FliesWorldAI self, int spawnRoom)
-        {
-            return false;
-        }
-
         public override string TimerText()
         {
             return Utils.Translate("Prepare for war,") + " " + Utils.Translate(PlayingAsText());
