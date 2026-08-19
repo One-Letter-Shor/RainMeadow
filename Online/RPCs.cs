@@ -131,11 +131,12 @@ namespace RainMeadow
         [RPCMethod]
         public static void UpdateUsernameTemporarily(RPCEvent rpc, string lastSentMessage)
         {
-            string incomingUsername = rpc.from.id.name;
+            MeadowPlayerId playerId = RPCEvent.currentRPCEvent!.from.id;
 
-            RainMeadow.Debug("Incoming: " + incomingUsername + ": " + lastSentMessage);
-            if (ChatLogManager.ShouldMuteMessageFromUser(incomingUsername)) return;
-            if (RWCustom.Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game)
+            RainMeadow.Debug($"Incoming: {playerId.name}: {lastSentMessage}");
+            if (ChatLogManager.IsPlayerMuted(playerId)) return;
+
+            if (Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game)
             {
                 foreach (var onlineHud in game.cameras[0].hud.parts.OfType<PlayerSpecificOnlineHud>())
                 {
@@ -201,7 +202,7 @@ namespace RainMeadow
         [RPCMethod]
         public static void KillFeedEnvironment(OnlinePhysicalObject opo, int index, OnlinePhysicalObject? blame)
         {
-            if (!(RWCustom.Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game && game.manager.upcomingProcess is null)) return;
+            if (!(Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game && game.manager.upcomingProcess is null)) return;
             OnlinePhysicalObject myKiller = null;
             OnlinePhysicalObject myTarget = null;
             foreach (var playerAvatar in OnlineManager.lobby.playerAvatars.Select(kv => kv.Value))
@@ -223,14 +224,14 @@ namespace RainMeadow
             if (myTarget != null)
             {
                 DeathMessage.DeathType type = (DeathMessage.DeathType)index;
-                DeathMessage.EnvironmentalDeathMessage(opo, type, blame);
+                DeathMessage.EnvironmentalDeathMessage(opo, type, blame, Custom.rainWorld.inGameTranslator);
             }
         }
 
         [RPCMethod]
         public static void KillFeedPvP(OnlinePhysicalObject killer, OnlinePhysicalObject target, int context)
         {
-            if (!(RWCustom.Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game && game.manager.upcomingProcess is null)) return;
+            if (!(Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game && game.manager.upcomingProcess is null)) return;
             OnlinePhysicalObject myKiller = null;
             OnlinePhysicalObject myTarget = null;
             foreach (var playerAvatar in OnlineManager.lobby.playerAvatars.Select(kv => kv.Value))
@@ -265,10 +266,11 @@ namespace RainMeadow
                 }
             }
         }
+
         [RPCMethod]
         public static void KillFeedCvP(OnlinePhysicalObject killer, OnlinePhysicalObject target)
         {
-            if (!(RWCustom.Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game && game.manager.upcomingProcess is null)) return;
+            if (!(Custom.rainWorld.processManager.currentMainLoop is RainWorldGame game && game.manager.upcomingProcess is null)) return;
             OnlinePhysicalObject myTarget = null;
             OnlinePhysicalObject myKiller = null;
             foreach (var playerAvatar in OnlineManager.lobby.playerAvatars.Select(kv => kv.Value))
@@ -287,7 +289,7 @@ namespace RainMeadow
             {
                 myKiller = opo2;
             }
-            DeathMessage.CreatureKillPlayer(myKiller, myTarget);
+            DeathMessage.CreatureKillPlayer(myKiller, myTarget, Custom.rainWorld.inGameTranslator);
         }
 
         [RPCMethod]

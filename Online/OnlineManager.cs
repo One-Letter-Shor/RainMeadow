@@ -1,10 +1,7 @@
-﻿using Menu;
-using Steamworks;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
+using Steamworks;
 using UnityEngine;
 
 namespace RainMeadow
@@ -81,7 +78,7 @@ namespace RainMeadow
 
         public static void LeaveLobby()
         {
-            ChatLogManager.ResetPlayerColors();
+            ChatLogManager.ClearPlayerColors();
             MatchmakingManager.currentInstance.LeaveLobby();
             netIO?.ForgetEverything();
             lobby = null;

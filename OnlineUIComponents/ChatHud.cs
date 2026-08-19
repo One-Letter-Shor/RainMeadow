@@ -1,4 +1,5 @@
 using HUD;
+using RainMeadow.Chat;
 using UnityEngine;
 
 namespace RainMeadow
@@ -53,25 +54,20 @@ namespace RainMeadow
             this.textPrompt = camera.hud.textPrompt;
         }
 
-        public void OnMessageLogged(string user, string message)
+        public void OnMessageLogged(IChatMessage chatMessage)
         {
-            if (OnlineManager.lobby == null) return;
-            if (ChatLogManager.ShouldMuteMessageFromUser(user)) return;
-
-            MatchmakingManager.currentInstance.FilterMessage(ref message);
-            if (ChatLogManager.ShouldPingFromMessage(user, message))
-            {
+            if (ChatLogManager.ShouldPingForMessage(chatMessage))
                 camera.virtualMicrophone.PlaySound(RainMeadow.Ext_SoundID.RM_Slugcat_Call, 0, 1f, 1.2f);
-            }
-            if (chatLogOverlay != null)
+
+            if (chatLogOverlay is not null)
             {
-                if (ChatLogManager.ShouldMakeSoundFromMessage(user, message, out bool quiet))
+                if (ChatLogManager.ShouldSoundPlayForMessage(chatMessage, out bool quieter))
                 {
                     camera.virtualMicrophone.PlaySound(
-                        quiet ? SoundID.MENU_First_Scroll_Tick : SoundID.MENU_Scroll_Tick, 
-                        0, 
-                        quiet ? 0.7f : 1.5f, 
-                        quiet ? 0.7f : 0.6f
+                        quieter ? SoundID.MENU_First_Scroll_Tick : SoundID.MENU_Scroll_Tick,
+                        0,
+                        quieter ? 0.7f : 1.5f,
+                        quieter ? 0.7f : 0.6f
                     );
                 }
                 bool shouldGoDown = chatLogOverlay.scroller.IsAtBottom();

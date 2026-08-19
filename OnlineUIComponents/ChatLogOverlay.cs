@@ -4,6 +4,8 @@ using System.Linq;
 using HarmonyLib;
 using Menu;
 using Menu.Remix.MixedUI;
+using RainMeadow.Chat;
+using RainMeadow.Exceptions;
 using RainMeadow.UI.Components;
 using UnityEngine;
 
@@ -11,7 +13,7 @@ namespace RainMeadow
 {
     public class ChatLogOverlay : MenuObject
     {
-        public (string, string)[] myChatLog = [];
+        public IChatMessage[] ChatLog = [];
         public ButtonScroller scroller; //idk, makes things easier to manage ;-;
         private ChatHud chatHud;
         private List<float> msgExtents;
@@ -60,7 +62,7 @@ namespace RainMeadow
             };
             this.subObjects.Add(scroller);
             
-            this.messageHistoryStart = Mathf.Max(0, ChatLogManager.chatLog.Count - maxMessagesHistoryOnStart);
+            this.messageHistoryStart = Mathf.Max(0, ChatLogManager.ChatMessages.Count - maxMessagesHistoryOnStart);
             UpdateLogDisplay();
             scroller.scrollOffset = scroller.DownScrollOffset = chatHud.logScrollPos == -1? scroller.MaxDownScroll : chatHud.logScrollPos;
 
@@ -196,52 +198,113 @@ namespace RainMeadow
 
         public void UpdateLogDisplay()
         {
-            if (ChatLogManager.chatLog.Count > myChatLog.Length + messageHistoryStart)
+            if (ChatLogManager.ChatMessages.Count > ChatLog.Length + messageHistoryStart)
             {
                 ChatLogManager.UpdatePlayerColors();
-                float desiredXWidth = scroller.size.x - bgSideOffset * 2, xPos = bgSideOffset + textOffsetSquishFix; 
-                var newMessages = ChatLogManager.chatLog.Skip(myChatLog.Length + messageHistoryStart);
-                foreach (var (username, message) in newMessages)
+                float maxWidth = scroller.size.x - bgSideOffset * 2, xPos = bgSideOffset + textOffsetSquishFix;
+
+                IEnumerable<IChatMessage> newMessages = ChatLogManager.ChatMessages.Skip(ChatLog.Length + messageHistoryStart);
+
+                foreach (IChatMessage chatMessage in newMessages)
                 {
-                    ChatLogManager.SystemMessageType? systemMessageType = ChatLogManager.SysMesSignatureToType(username);
-                    bool isSystemMessage = systemMessageType is not null;
-                    List<string> splitMessages = [.. MenuHelpers.SmartSplitIntoFixedStrings($"{message}", desiredXWidth - (isSystemMessage ? 0 : LabelTest.GetWidth($"{username}: ", false)), 1, out string remainingMessage)];
-                    splitMessages.AddRange(MenuHelpers.SmartSplitIntoStrings(remainingMessage, desiredXWidth));
-                    for (int i = 0; i < splitMessages.Count; i++)
+                    float maxFirstTextWidth;
+                    switch (chatMessage)
+                    {
+                        case TextPlayerMessage playerMessage:
+                            string personaName = playerMessage.PlayerId.GetPersonaName();
+                            maxFirstTextWidth = maxWidth - LabelTest.GetWidth($"{personaName}: ");
+                            break;
+
+                        case SystemMessage:
+                            maxFirstTextWidth = maxWidth;
+                            break;
+
+                        default: throw new NonExhaustiveException(chatMessage);
+                    }
+
+                    List<string> splitTextList = MenuHelpers
+                        .SmartSplitIntoFixedStrings(chatMessage.Text, maxFirstTextWidth, 1, out string remainingMessage)
+                        .ToList();
+                    splitTextList.AddRange(MenuHelpers.SmartSplitIntoStrings(remainingMessage, maxWidth));
+
+                    for (int i = 0; i < splitTextList.Count; i++)
                     {
                         float yPos = scroller.GetIdealYPosWithScroll(scroller.buttons.Count) + textOffsetSquishFix;
-                        string s = splitMessages[i];
-                        if (isSystemMessage)
-                        {
-                            AlignedMenuLabel systemMessageLabel = new(this.menu, scroller, s, new Vector2(xPos, yPos), new Vector2(0, 20), false);
-                            systemMessageLabel.label.alignment = FLabelAlignment.Left;
-                            systemMessageLabel.label.color = ChatLogManager.GetColorOfSystemMessage(systemMessageType);
-                            scroller.AddScrollObjects(systemMessageLabel);
-                            msgExtents.Add(LabelTest.GetWidth(s) + 2f);
-                        }
-                        else if (i == 0)
-                        {
-                            UsernameMenuLabel usernameLabel = new(this.menu, scroller, username!, new Vector2(xPos, yPos), new Vector2(0, 20), false);
-                            usernameLabel.label.alignment = FLabelAlignment.Left;
-                            usernameLabel.label.color = ChatLogManager.GetDisplayPlayerColor(username!);
+                        string text = splitTextList[i];
 
-                            AlignedMenuLabel messagewithUserLabel = new(this.menu, usernameLabel, $": {s}", new Vector2(LabelTest.GetWidth(username) + 2 + (usernameLabel.Host ? 14 : 0), 0), new Vector2(0, 20), false)
-                            { labelPosAlignment = FLabelAlignment.Left };
-                            messagewithUserLabel.label.alignment = FLabelAlignment.Left;
-                            usernameLabel.subObjects.Add(messagewithUserLabel);
-                            scroller.AddScrollObjects(usernameLabel);
-                            msgExtents.Add(LabelTest.GetWidth($"{username}: {s}") + 4f + (usernameLabel.Host ? 14f : 0));
-                        }
-                        else
+                        switch (chatMessage)
                         {
-                            AlignedMenuLabel messageLabel = new(this.menu, scroller, s, new Vector2(xPos, yPos), new Vector2(0, 20), false);
-                            messageLabel.label.alignment = FLabelAlignment.Left;
-                            scroller.AddScrollObjects(messageLabel);
-                            msgExtents.Add(LabelTest.GetWidth(s) + 4f);
+                            case TextPlayerMessage playerMessage:
+                                string personaName = playerMessage.PlayerId.GetPersonaName();
+
+                                if (i == 0)
+                                {
+                                    Color color = ChatLogManager.TryGetPlayerColor(
+                                        playerMessage.PlayerId,
+                                        out Color foundColor
+                                    )
+                                        ? foundColor
+                                        : default(Color);
+
+                                    UsernameMenuLabel personaNameLabel = new(
+                                        menu,
+                                        scroller,
+                                        personaName,
+                                        new Vector2(xPos, yPos),
+                                        new Vector2(0f, 20f),
+                                        false)
+                                    {
+                                        label =
+                                        {
+                                            alignment = FLabelAlignment.Left,
+                                            color = color
+                                        }
+                                    };
+
+                                    AlignedMenuLabel messageWithUserLabel = new(menu, personaNameLabel, $": {text}", new Vector2(LabelTest.GetWidth($"{personaNameLabel}: ") + (personaNameLabel.Host ? 14 : 0), 0), new Vector2(0, 20), false)
+                                    {
+                                        labelPosAlignment = FLabelAlignment.Left,
+                                        label = { alignment = FLabelAlignment.Left }
+                                    };
+
+                                    personaNameLabel.subObjects.Add(messageWithUserLabel);
+                                    scroller.AddScrollObjects(personaNameLabel);
+                                    msgExtents.Add(LabelTest.GetWidth($"{personaName}: {text}") + 4f + (personaNameLabel.Host ? 14f : 0));
+                                }
+                                else
+                                {
+                                    AlignedMenuLabel messageLabel = new(
+                                        menu,
+                                        scroller,
+                                        text,
+                                        new Vector2(xPos, yPos),
+                                        new Vector2(0f, 20f),
+                                        false)
+                                    { label = { alignment = FLabelAlignment.Left } };
+
+                                    scroller.AddScrollObjects(messageLabel);
+                                    msgExtents.Add(LabelTest.GetWidth(text) + 4f);
+                                }
+                                break;
+
+                            case SystemMessage systemMessage:
+                                AlignedMenuLabel systemMessageLabel = new(menu, scroller, text, new Vector2(xPos, yPos), new Vector2(0, 20), false)
+                                {
+                                    label =
+                                    {
+                                        alignment = FLabelAlignment.Left,
+                                        color = ChatLogManager.ColorBySystemMessageKind[systemMessage.MessageKind]
+                                    }
+                                };
+                                scroller.AddScrollObjects(systemMessageLabel);
+                                msgExtents.Add(LabelTest.GetWidth(text) + 2f);
+                                break;
+
+                            default: throw new NonExhaustiveException(chatMessage);
                         }
                     }
                 }
-                myChatLog = [.. ChatLogManager.chatLog.Skip(messageHistoryStart)];
+                ChatLog = [.. ChatLogManager.ChatMessages.Skip(messageHistoryStart)];
                 inactivityTimer = 0;
             }
         }

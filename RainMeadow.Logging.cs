@@ -1,10 +1,11 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Newtonsoft.Json;
+using RainMeadow.Chat;
 using UnityEngine;
 
 namespace RainMeadow
@@ -50,19 +51,21 @@ namespace RainMeadow
         }
         public static void Error(object data, [CallerFilePath] string callerFile = "", [CallerMemberName] string callerName = "")
         {
-            if (RainMeadow.rainMeadowOptions.CurrentLogLevel.Value <= LogLevel.Error)
+            if (rainMeadowOptions.CurrentLogLevel.Value <= LogLevel.Error)
             {
                 instance.Logger.LogError($"{LogDOT()}|{LogTime()}|{TrimCaller(callerFile)}.{callerName}:{data}");
-                if (ChatLogManager.logErrorsInChat && RainMeadow.rainMeadowOptions.EnableChatLogErrorToggle.Value)
+
+                if (ChatLogManager.logErrorsInChat && rainMeadowOptions.EnableChatLogErrorToggle.Value)
                 {
                     // Get the error
                     string croppedError = $"[{TrimCaller(callerFile)}.{callerName}] : " + string.Concat(data.ToString().TakeWhile(x => x != '\n' && x != '\r'));
-                    
+
                     // Crop the text according to the limit
                     if (croppedError.Length + 3 > ChatTextBox.textLimit) croppedError = string.Concat(croppedError.Take(ChatTextBox.textLimit - 3)) + "...";
-                    
+
                     // Avoid error spam
-                    if (croppedError != ChatLogManager.chatLog.Last().Item2) ChatLogManager.LogSystemMessage(croppedError, ChatLogManager.SystemMessageType.LogError);
+                    if (croppedError != ChatLogManager.ChatMessages.Last().Text)
+                        ChatLogManager.LogMessage(new SystemMessage(SystemMessage.Kind.ErrorLog, croppedError));
                 }
             }
         }

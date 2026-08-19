@@ -1,12 +1,21 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Menu;
 using Menu.Remix.MixedUI;
+using RainMeadow.Chat;
+using RainMeadow.Exceptions;
 using UnityEngine;
 
 namespace RainMeadow.UI.Components
 {
     public class ChatMenuBox : RectangularMenuObject // Subscribe/Unsubscribe from ChatLogManager.MessageLogged somewhere in main process.
     {
+        public const int MaxVisibleMessageLabels = 25;
+
+        public RoundedRect roundedRect;
+        public ChatTextBox chatTypingBox;
+        public ButtonScroller messageScroller;
+
         public ChatMenuBox(Menu.Menu menu, MenuObject owner, Vector2 pos, Vector2 size) : base(menu, owner, pos, size)
         {
             roundedRect = new(menu, this, Vector2.zero, this.size, true) { fillAlpha = 0.3f };
@@ -29,89 +38,158 @@ namespace RainMeadow.UI.Components
             menu.MutualHorizontalButtonBind(chatTypingBox, messageScroller.scrollSlider);
             subObjects.AddRange([roundedRect, chatTypingBox, messageScroller]);
 
-            for (int i = Mathf.Max(0, ChatLogManager.chatLog.Count - maxVisibleMessages - 1); i < ChatLogManager.chatLog.Count; i++)
+            for (int i = Mathf.Max(0, ChatLogManager.ChatMessages.Count - MaxVisibleMessageLabels - 1); i < ChatLogManager.ChatMessages.Count; i++)
             {
-                AddNewMessageToScroller(ChatLogManager.chatLog[i].Item1, ChatLogManager.chatLog[i].Item2);
+                AddNewMessageToScroller(ChatLogManager.ChatMessages[i]);
             }
         }
-        public AlignedMenuLabel GetMessageLabel(string? user, string stg, ChatLogManager.SystemMessageType? systemMessageType, bool withUser, Vector2 pos, Vector2 size)
+
+        public AlignedMenuLabel CreateMessageLabel(
+            IChatMessage chatMessage,
+            string text,
+            bool isFirstOfSplitLabels,
+            Vector2 pos_,
+            Vector2 size_)
         {
-            if (systemMessageType is not null)
+            switch (chatMessage)
             {
-                AlignedMenuLabel systemMessageLabel = new(menu, messageScroller, stg, pos, size, false)
-                { labelPosAlignment = FLabelAlignment.Left, verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom };
-                systemMessageLabel.label.alignment = FLabelAlignment.Left;
-                systemMessageLabel.label.color = ChatLogManager.GetColorOfSystemMessage(systemMessageType);
-                return systemMessageLabel;
-            }
-            if (withUser)
-            {
-                UsernameMenuLabel userLabel = new(menu, messageScroller, user!, pos, size, false)
-                { labelPosAlignment = FLabelAlignment.Left, verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom };
-                userLabel.label.alignment = FLabelAlignment.Left;
-                userLabel.label.color = ChatLogManager.GetDisplayPlayerColor(user!, MenuColorEffect.rgbMediumGrey);
+                case TextPlayerMessage playerMessage:
+                {
+                    string personaName = playerMessage.PlayerId.GetPersonaName();
 
+                    if (isFirstOfSplitLabels)
+                    {
+                        UsernameMenuLabel userLabel = new(menu, messageScroller, personaName, pos_, size_, false)
+                        {
+                            labelPosAlignment = FLabelAlignment.Left,
+                            verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom,
+                            label =
+                            {
+                                alignment = FLabelAlignment.Left,
+                                color = ChatLogManager.TryGetPlayerColor(playerMessage.PlayerId, out Color foundColor)
+                                    ? foundColor
+                                    : MenuColorEffect.rgbMediumGrey
+                            }
+                        };
 
-                AlignedMenuLabel messageWithUserLabel = new(menu, userLabel, $": {stg}", new(LabelTest.GetWidth(user) + 2 + (userLabel.Host ? 14 : 0), 0), userLabel.size, false)
-                { labelPosAlignment = FLabelAlignment.Left, verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom };
-                messageWithUserLabel.label.alignment = FLabelAlignment.Left;
-                userLabel.subObjects.Add(messageWithUserLabel);
-                return userLabel;
+                        AlignedMenuLabel messageWithUserLabel = new(
+                            menu,
+                            userLabel,
+                            $": {text}",
+                            new Vector2(LabelTest.GetWidth($"{personaName}: ") + (userLabel.Host ? 14 : 0), 0),
+                            userLabel.size,
+                            false)
+                        {
+                            labelPosAlignment = FLabelAlignment.Left,
+                            verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom,
+                            label = { alignment = FLabelAlignment.Left }
+                        };
+
+                        userLabel.subObjects.Add(messageWithUserLabel);
+                        return userLabel;
+                    }
+
+                    AlignedMenuLabel messageLabel = new(menu, messageScroller, text, pos_, size_, false)
+                    {
+                        labelPosAlignment = FLabelAlignment.Left,
+                        verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom,
+                        label = { alignment = FLabelAlignment.Left }
+                    };
+
+                    return messageLabel;
+                }
+
+                case SystemMessage systemMessage:
+                {
+                    AlignedMenuLabel messageLabel = new(menu, messageScroller, text, pos_, size_, false)
+                    {
+                        labelPosAlignment = FLabelAlignment.Left,
+                        verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom,
+                        label =
+                        {
+                            alignment = FLabelAlignment.Left,
+                            color = ChatLogManager.ColorBySystemMessageKind[systemMessage.MessageKind]
+                        }
+                    };
+
+                    return messageLabel;
+                }
+
+                default: throw new NonExhaustiveException(chatMessage);
             }
-            AlignedMenuLabel messageLabel = new(menu, messageScroller, stg, pos, size, false)
-            { labelPosAlignment = FLabelAlignment.Left, verticalLabelPosAlignment = OpLabel.LabelVAlignment.Bottom };
-            messageLabel.label.alignment = FLabelAlignment.Left;
-            return messageLabel;
         }
-        public void AddNewMessageToScroller(string user, string message)
+
+        public void AddNewMessageToScroller(IChatMessage chatMessage)
         {
             bool setNewScrollPosToLatest = messageScroller.IsAtBottom();
-            messageScroller.AddScrollObjects(GetMessageLabels(user, message));
+            messageScroller.AddScrollObjects(CreateMessageLabels(chatMessage));
             if (setNewScrollPosToLatest) messageScroller.MoveAtBottom();
         }
-        public AlignedMenuLabel[] GetMessageLabels(string user, string message)
-        {
-            List<AlignedMenuLabel> messageLabels = [];
-            ChatLogManager.SystemMessageType? systemMessageType = ChatLogManager.SysMesSignatureToType(user);
-            bool isSystemMessage = systemMessageType is not null;
-            float desiredXWidth = messageScroller.size.x - 5;
-            Vector2 desiredSize = new(desiredXWidth, messageScroller.buttonHeight);
 
-            bool host = OnlineManager.lobby?.owner.id.GetPersonaName() == user;
-            List<string> splitMessages = [.. MenuHelpers.SmartSplitIntoFixedStrings($"{message}", desiredXWidth - (isSystemMessage ? 0 : LabelTest.GetWidth($"{user}: ", false) + (host ? 14f : 0)), 1, out string remainingMessage)];
-            splitMessages.AddRange(MenuHelpers.SmartSplitIntoStrings(remainingMessage, desiredXWidth));
-            for (int i = 0; i < splitMessages.Count; i++)
-                messageLabels.Add(GetMessageLabel(user, splitMessages[i], systemMessageType, i == 0, new(5, messageScroller.GetIdealPosWithScrollForButton(i + messageScroller.buttons.Count).y), desiredSize));
-            return [.. messageLabels];
+        public AlignedMenuLabel[] CreateMessageLabels(IChatMessage chatMessage)
+        {
+            float maxWidth = messageScroller.size.x - 5;
+            float maxFirstTextWidth;
+            Vector2 desiredSize = new(maxWidth, messageScroller.buttonHeight);
+
+            switch (chatMessage)
+            {
+                case TextPlayerMessage playerMessage:
+                    bool isFromHost = playerMessage.PlayerId == OnlineManager.lobby.owner.id;
+                    string personaName = playerMessage.PlayerId.GetPersonaName();
+
+                    maxFirstTextWidth = (maxWidth - LabelTest.GetWidth($"{personaName}: ")) + (isFromHost ? 14f : 0f);
+                    break;
+
+                case SystemMessage:
+                    maxFirstTextWidth = maxWidth;
+                    break;
+
+                default: throw new NonExhaustiveException(chatMessage);
+            }
+
+            List<string> splitTextList = MenuHelpers
+                .SmartSplitIntoFixedStrings(chatMessage.Text, maxFirstTextWidth, 1, out string remainingMessage)
+                .ToList();
+            splitTextList.AddRange(MenuHelpers.SmartSplitIntoStrings(remainingMessage, maxWidth));
+
+            AlignedMenuLabel[] messageLabels = splitTextList
+                .Select(
+                    (text, i) => CreateMessageLabel(
+                        chatMessage,
+                        text,
+                        i == 0,
+                        new Vector2(
+                            5,
+                            messageScroller.GetIdealPosWithScrollForButton(i + messageScroller.buttons.Count).y
+                        ),
+                        desiredSize
+                    )
+                )
+                .ToArray();
+
+            return messageLabels;
         }
-        public void OnMessageLogged(string user, string message)
+
+        public void OnMessageLogged(IChatMessage chatMessage)
         {
             if (!menu.Active)
                 return;
 
-            if (ChatLogManager.ShouldMuteMessageFromUser(user)) return;
-
-            MatchmakingManager.currentInstance.FilterMessage(ref message);
-            if (ChatLogManager.ShouldPingFromMessage(user, message))
-            {
+            if (ChatLogManager.ShouldPingForMessage(chatMessage))
                 menu.manager.menuMic.PlaySound(RainMeadow.Ext_SoundID.RM_Slugcat_Call, 0, 1f, 1.2f);
-            }
-            if (ChatLogManager.ShouldMakeSoundFromMessage(user, message, out bool quiet))
+
+            if (ChatLogManager.ShouldSoundPlayForMessage(chatMessage, out bool quieter))
             {
                 menu.manager.menuMic.PlaySound(
-                    quiet ? SoundID.MENU_First_Scroll_Tick : SoundID.MENU_Scroll_Tick, 
-                    0, 
-                    quiet ? 0.7f : 1.5f, 
-                    quiet ? 0.7f : 0.6f
+                    quieter ? SoundID.MENU_First_Scroll_Tick : SoundID.MENU_Scroll_Tick,
+                    0,
+                    quieter ? 0.7f : 1.5f,
+                    quieter ? 0.7f : 0.6f
                 );
             }
-            AddNewMessageToScroller(user, message);
+
+            AddNewMessageToScroller(chatMessage);
         }
-
-
-        public RoundedRect roundedRect;
-        public ChatTextBox chatTypingBox;
-        public ButtonScroller messageScroller;
-        private const int maxVisibleMessages = 25;
     }
 }

@@ -9,6 +9,7 @@ using MonoMod.RuntimeDetour;
 using MoreSlugcats;
 using RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS;
 using RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle;
+using RainMeadow.Chat;
 using RainMeadow.UI;
 using RainMeadow.UI.Components;
 using RWCustom;
@@ -2809,7 +2810,12 @@ namespace RainMeadow
                 }
                 self.outsidePlayersCountAsDead = false; // prevent killing scugs in dens
                 arena.externalArenaGameMode.On_ArenaGameSession_ctor(arena, orig, self, game);
-                ChatLogManager.LogSystemMessage(Utils.Translate("Starting match in") + " " + MultiplayerUnlocks.LevelDisplayName(self.arenaSitting.GetCurrentLevel), ChatLogManager.SystemMessageType.StartOfRound);
+
+                SystemMessage systemMessage = new(
+                    SystemMessage.Kind.SessionStart,
+                    $"{Utils.Translate("Starting match in")} {MultiplayerUnlocks.LevelDisplayName(self.arenaSitting.GetCurrentLevel)}"
+                );
+                ChatLogManager.LogMessage(systemMessage);
             }
         }
 
@@ -3226,11 +3232,15 @@ namespace RainMeadow
                 self.headingLabel.text = resultText;
                 RMOverlayHUD.GetOverlay()?.DestroyChatHUD();
 
-                string systemMessage = self.Translate("SESSION ENDED!");
+                string text = self.Translate("SESSION ENDED!");
                 if (isSpecific)
-                    systemMessage += $" {resultText}";
+                    text += $" {resultText}";
 
-                ChatLogManager.LogSystemMessage(systemMessage, ChatLogManager.SystemMessageType.EndOfSession);
+                SystemMessage systemMessage = new(
+                    SystemMessage.Kind.SittingResult,
+                    text
+                );
+                ChatLogManager.LogMessage(systemMessage);
             }
         }
 

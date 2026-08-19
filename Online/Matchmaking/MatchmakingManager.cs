@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Net;
+using RainMeadow.Chat;
 
 namespace RainMeadow
 {
@@ -185,7 +185,7 @@ namespace RainMeadow
                 RainMeadow.Error($"Error: {player} tried sending a chat message longer than what is allowed. Message will not be displayed. {message.Length}/{ChatTextBox.textLimit}");
                 return;
             }
-            ChatLogManager.LogMessage($"{player.id.GetPersonaName()}", $"{message}");
+            ChatLogManager.LogMessage(new TextPlayerMessage(player.id, message));
         }
         public virtual void FilterMessage(ref string message) { }
         public virtual string FilterTeamName(string name)
@@ -201,10 +201,20 @@ namespace RainMeadow
             if (OnlineManager.lobby != null && OnlineManager.mePlayer == OnlineManager.lobby.owner && OnlineManager.lobby.bannedUsers.list.Contains(player.id))
             {
                 BanHammer.BanUser(player);
-                ChatLogManager.LogSystemMessage((player.id.GetPersonaName()) + " " + Utils.Translate("tried to join the game but was kicked."), ChatLogManager.SystemMessageType.PlayerJoinFail);
+
+                SystemMessage joinFailMessage = new(
+                    SystemMessage.Kind.PlayerJoinFail,
+                    $"{player.id.GetPersonaName()} {Utils.Translate("tried to join the game but was kicked.")}"
+                );
+                ChatLogManager.LogMessage(joinFailMessage);
                 return;
             }
-            ChatLogManager.LogSystemMessage((player.id.GetPersonaName()) + " " + Utils.Translate("joined the game."), ChatLogManager.SystemMessageType.PlayerJoin);
+
+            SystemMessage joinMessage = new(
+                SystemMessage.Kind.PlayerJoin,
+                $"{player.id.GetPersonaName()} {Utils.Translate("joined the game.")}"
+            );
+            ChatLogManager.LogMessage(joinMessage);
         }
         public void HandleDisconnect(OnlinePlayer player)
         {
@@ -221,7 +231,11 @@ namespace RainMeadow
             OnlineManager.players.Remove(player);
             OnlineManager.netIO.ForgetPlayer(player);
 
-            ChatLogManager.LogSystemMessage((player.id.GetPersonaName()) + " " + Utils.Translate("left the game."), ChatLogManager.SystemMessageType.PlayerJoin);
+            SystemMessage systemMessage = new(
+                SystemMessage.Kind.PlayerJoin,
+                $"{player.id.GetPersonaName()} {Utils.Translate("left the game.")}"
+            );
+            ChatLogManager.LogMessage(systemMessage);
         }
 
         public abstract MeadowPlayerId GetEmptyId();

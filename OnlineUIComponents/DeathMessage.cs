@@ -1,7 +1,7 @@
-using MoreSlugcats;
-using RainMeadow.Game;
 using System;
 using System.Linq;
+using MoreSlugcats;
+using RainMeadow.Game;
 using Watcher;
 
 namespace RainMeadow;
@@ -223,7 +223,7 @@ public static class DeathMessage
                     ChatLogManager.LogSystemMessage(t + " " + Utils.Translate("was blown up by") + $" {k}.", ChatLogManager.SystemMessageType.CreatureDeath);
                     break;
             }
-            
+
             var onlineHuds = game.cameras[0].hud.parts.OfType<PlayerSpecificOnlineHud>();
 
             foreach (var onlineHud in onlineHuds)
@@ -248,7 +248,7 @@ public static class DeathMessage
             if ((killer.apo as AbstractCreature).creatureTemplate.TopAncestor().type == CreatureTemplate.Type.Centipede)
             {
                 ChatLogManager.LogSystemMessage(t + " " + Utils.Translate("was zapped by a") + " " + Utils.Translate(k) + ".", ChatLogManager.SystemMessageType.CreatureDeath);
-            } 
+            }
             else
             {
                 ChatLogManager.LogSystemMessage(t + " " + Utils.Translate("was slain by a") + " " + Utils.Translate(k) + ".", ChatLogManager.SystemMessageType.CreatureDeath);
