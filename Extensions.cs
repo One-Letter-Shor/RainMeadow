@@ -1,10 +1,10 @@
-﻿using Menu;
-using RWCustom;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Menu;
+using RWCustom;
 using UnityEngine;
 
 namespace RainMeadow
@@ -49,9 +49,11 @@ namespace RainMeadow
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool GetOnlineCreature(this AbstractCreature apo, out OnlineCreature? oc) => (oc = GetOnlineCreature(apo)) is not null;
 
+        [Obsolete("Use IsMine")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsLocal(this AbstractPhysicalObject apo) => OnlineManager.lobby is null || (GetOnlineObject(apo)?.isMine ?? true);
 
+        [Obsolete("Use GetOnlineObject and check isMine")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsLocal(this AbstractPhysicalObject apo, out OnlinePhysicalObject? opo)
         {
@@ -59,9 +61,11 @@ namespace RainMeadow
             return OnlineManager.lobby is null || (OnlinePhysicalObject.map.TryGetValue(apo, out opo) && opo.isMine);
         }
 
+        [Obsolete("Use IsMine")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsLocal(this PhysicalObject po) => IsLocal(po.abstractPhysicalObject);
 
+        [Obsolete("Use GetOnlineObject and check isMine")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsLocal(this PhysicalObject po, out OnlinePhysicalObject? opo) => IsLocal(po.abstractPhysicalObject, out opo);
 
