@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using MonoMod.Cil;
 using Mono.Cecil.Cil;
+using MonoMod.Cil;
 using UnityEngine;
 using Watcher;
-using System.Linq;
 
 namespace RainMeadow
-{    
+{
     public partial class RainMeadow
     {
         // customize creature behavior for online sync
@@ -77,9 +76,12 @@ namespace RainMeadow
             c.GotoNext(MoveType.Before, x => x.MatchBrtrue(out _));
             c.Emit(OpCodes.Ldarg_0);
 
-            c.EmitDelegate((bool isAttacking, MoreSlugcats.StowawayBug self) => {
-                if (OnlineManager.lobby is null) return isAttacking;
-                return isAttacking && self.IsLocal();
+            c.EmitDelegate((bool isAttacking, MoreSlugcats.StowawayBug self) =>
+            {
+                if (OnlineManager.lobby is not null && !self.IsMine)
+                    return false;
+
+                return isAttacking;
             });
 
             // if (!this.headFired[k] && this.spitCooldown < 0 && base.grasps[k] == null)
@@ -99,9 +101,11 @@ namespace RainMeadow
 
             c.Emit(OpCodes.Ldarg_0);
             c.Emit(OpCodes.Ldloc, 5);
-            
-            c.EmitDelegate((MoreSlugcats.StowawayBug self, int index) => {
-                if (OnlineManager.lobby is null) return;
+
+            c.EmitDelegate((MoreSlugcats.StowawayBug self, int index) =>
+            {
+                if (OnlineManager.lobby is null)
+                    return;
 
                 if (self.abstractPhysicalObject.GetOnlineObject() is OnlinePhysicalObject opo)
                     opo.BroadcastRPCInRoom(StowawayHeadAttackRPC, opo, (byte)index);
@@ -193,10 +197,12 @@ namespace RainMeadow
                 );
 
             c.Emit(OpCodes.Ldarg_0);
-            c.EmitDelegate((MoreSlugcats.StowawayBug stowaway) => {
-                if (OnlineManager.lobby is null) return false;
-                if (stowaway.IsLocal()) return false;
-                return true;
+            c.EmitDelegate((MoreSlugcats.StowawayBug stowaway) =>
+            {
+                if (OnlineManager.lobby is null)
+                    return false;
+
+                return !stowaway.IsMine;
             });
             c.Emit(OpCodes.Brtrue, skip);
 
@@ -270,9 +276,12 @@ namespace RainMeadow
             return orig(room, pos, rattlerSpawnLocsSoFar);
         }
 
-        private Watcher.SandGrubBurrow SandGrubAI_PickNewBurrow(On.Watcher.SandGrubAI.orig_PickNewBurrow orig, Watcher.SandGrubAI self)
+        private SandGrubBurrow? SandGrubAI_PickNewBurrow(On.Watcher.SandGrubAI.orig_PickNewBurrow orig, SandGrubAI self)
         {
-            if (!self.Grub.IsLocal()) return null; // Don't try switching burrows if we are a remote, only my owner is allowed to do that.
+            // Don't try switching burrows if we are a remote, only my owner is allowed to do that.
+            if (OnlineManager.lobby is not null && !self.Grub.IsMine)
+                return null;
+
             return orig(self);
         }
 
@@ -349,27 +358,49 @@ namespace RainMeadow
         }
 
 
-        private bool Creature_Grab(On.Creature.orig_Grab orig, Creature self, PhysicalObject obj, int graspUsed, int chunkGrabbed, Creature.Grasp.Shareability shareability, float dominance, bool overrideEquallyDominant, bool pacifying)
+        private bool Creature_Grab(
+            On.Creature.orig_Grab orig,
+            Creature self,
+            PhysicalObject obj,
+            int graspUsed,
+            int chunkGrabbed,
+            Creature.Grasp.Shareability shareability,
+            float dominance,
+            bool overrideEquallyDominant,
+            bool pacifying)
         {
-            var ret = orig(self, obj, graspUsed, chunkGrabbed, shareability, dominance, overrideEquallyDominant, pacifying);
-            if (ret && obj.abstractPhysicalObject.GetOnlineObject() is OnlinePhysicalObject grabbingOnline && !grabbingOnline.isMine && self.IsLocal())
-            {
-                OnlineCreature? oc = self.abstractCreature.GetOnlineCreature();
-                if (oc is null)
-                {
-                    RainMeadow.Error($"grabbing entity does not exist in online space {obj.abstractPhysicalObject}");
-                    return ret;
-                }
+            bool origValue = orig(
+                self,
+                obj,
+                graspUsed,
+                chunkGrabbed,
+                shareability,
+                dominance,
+                overrideEquallyDominant,
+                pacifying
+            );
 
-                GraspRef grasp = GraspRef.FromGrasp(self.grasps[graspUsed]);
-                grabbingOnline.Lock("grasp", grabbingOnline.owner.InvokeRPC(CreatureGrabRPC, oc.id, grasp));
-                if (!grabbingOnline.isPending && grabbingOnline.isTransferable)
-                {
-                    grabbingOnline.Request();
-                } 
+            if (OnlineManager.lobby is null)
+                return origValue;
+
+            if (!self.abstractCreature.GetOnlineCreature(out OnlineCreature selfOC))
+            {
+                Error($"Grabbing creature {self} does not exist in online space.");
+                return origValue;
             }
-            
-            return ret;
+
+            if (origValue
+                && self.abstractCreature.GetOnlineObject(out OnlinePhysicalObject grabbedOpo)
+                && !grabbedOpo.isMine
+                && selfOC.isMine)
+            {
+                GraspRef grasp = GraspRef.FromGrasp(self.grasps[graspUsed]);
+                grabbedOpo.Lock("grasp", grabbedOpo.owner.InvokeRPC(CreatureGrabRPC, selfOC.id, grasp));
+                if (grabbedOpo is { isPending: false, isTransferable: true })
+                    grabbedOpo.Request();
+            }
+
+            return origValue;
         }
 
         private void EggBugGraphics_Update(On.EggBugGraphics.orig_Update orig, EggBugGraphics self)
@@ -432,13 +463,14 @@ namespace RainMeadow
         // so lets not let them choose for themselves.
         private void OverseerAI_Update(On.OverseerAI.orig_Update orig, OverseerAI self)
         {
-            if (!self.overseer.IsLocal())
+            if (OnlineManager.lobby is not null && !self.overseer.IsMine)
             {
-                Vector2 tempLookAt = self.lookAt;
+                Vector2 previousLookAt = self.lookAt;
                 orig(self);
-                self.lookAt = tempLookAt;
+                self.lookAt = previousLookAt;
                 return;
             }
+
             orig(self);
         }
 
@@ -446,7 +478,7 @@ namespace RainMeadow
         // we might also need to block ziptoposition, but i havent been able to test if thats an issue.
         private void OverseerAI_UpdateTempHoverPosition(On.OverseerAI.orig_UpdateTempHoverPosition orig, OverseerAI self)
         {
-            if (!self.overseer.IsLocal()) return;
+            if (OnlineManager.lobby is not null && !self.overseer.IsMine) return;
             orig(self);
         }
 
@@ -462,7 +494,10 @@ namespace RainMeadow
                     );
                 c.Emit(OpCodes.Ldarg_0);
                 c.Emit(OpCodes.Ldarg_1);
-                c.EmitDelegate((GarbageWorm self, bool burrowed) => !burrowed || self.IsLocal());  // HACK: not burrowed on NewRoom => spawn normally
+                c.EmitDelegate(
+                    // HACK: not burrowed on NewRoom => spawn normally
+                    (GarbageWorm self, bool burrowed) => OnlineManager.lobby is null || !burrowed || self.IsMine
+                );
                 c.Emit(OpCodes.Brfalse, skip);
                 c.GotoNext(moveType: MoveType.After,
                     i => i.MatchStfld<GarbageWorm>("hole")
@@ -477,25 +512,36 @@ namespace RainMeadow
 
         private void GarbageWormAI_Update(On.GarbageWormAI.orig_Update orig, GarbageWormAI self)
         {
-            var origAngry = self.showAsAngry;
-            var origLookPoint = self.worm.lookPoint;
-            orig(self);
-            if (!self.creature.IsLocal())
+            if (OnlineManager.lobby is not null && !self.creature.IsMine)
             {
-                self.worm.lookPoint = origLookPoint;
-                self.showAsAngry = origAngry;
-            }
-        }
+                bool previousShowAsAngry = self.showAsAngry;
+                Vector2 previousLookPoint = self.worm.lookPoint;
 
-        private void DropBugAI_CeilingSitModule_Dislodge(On.DropBugAI.CeilingSitModule.orig_Dislodge orig, DropBugAI.CeilingSitModule self)
-        {
-            if (!self.AI.creature.IsLocal()) return;
+                orig(self);
+
+                self.showAsAngry = previousShowAsAngry;
+                self.worm.lookPoint = previousLookPoint;
+                return;
+            }
+
             orig(self);
         }
 
-        private void DropBugAI_CeilingSitModule_JumpFromCeiling(On.DropBugAI.CeilingSitModule.orig_JumpFromCeiling orig, DropBugAI.CeilingSitModule self, BodyChunk targetChunk, Vector2 attackDir)
+        private void DropBugAI_CeilingSitModule_Dislodge(
+            On.DropBugAI.CeilingSitModule.orig_Dislodge orig,
+            DropBugAI.CeilingSitModule self)
         {
-            if (!self.AI.creature.IsLocal()) return;
+            if (OnlineManager.lobby is not null && !self.AI.creature.IsMine) return;
+            orig(self);
+        }
+
+        private void DropBugAI_CeilingSitModule_JumpFromCeiling(
+            On.DropBugAI.CeilingSitModule.orig_JumpFromCeiling orig,
+            DropBugAI.CeilingSitModule self,
+            BodyChunk targetChunk,
+            Vector2 attackDir)
+        {
+            if (OnlineManager.lobby is not null && !self.AI.creature.IsMine) return;
             orig(self, targetChunk, attackDir);
         }
 
@@ -512,7 +558,7 @@ namespace RainMeadow
                     i => i.MatchCallOrCallvirt<FliesWorldAI>("RespawnOneFly")
                     );
                 c.Emit(OpCodes.Ldarg_0);
-                c.EmitDelegate((AbstractCreature self) => self.IsLocal());
+                c.EmitDelegate((AbstractCreature self) => OnlineManager.lobby is null || self.IsMine);
                 c.Emit(OpCodes.Brfalse, skip);
                 c.Index += 4;
                 c.MarkLabel(skip);
@@ -525,42 +571,50 @@ namespace RainMeadow
 
         private void TentaclePlantAI_Update(On.TentaclePlantAI.orig_Update orig, TentaclePlantAI self)
         {
-            var mostInterestingItem = self.mostInterestingItem;
+            if (OnlineManager.lobby is not null && !self.creature.IsMine)
+            {
+                PhysicalObject mostInterestingItem = self.mostInterestingItem;
+                orig(self);
+                self.mostInterestingItem = mostInterestingItem;
+                return;
+            }
+
             orig(self);
-            if (!self.creature.IsLocal()) self.mostInterestingItem = mostInterestingItem;
         }
 
         // HACK: doesn't play sounds, we should IL hook to disable just the eggs
         private void EggBug_DropEggs(On.EggBug.orig_DropEggs orig, EggBug self)
         {
-            if (!self.IsLocal())
+            if (OnlineManager.lobby is not null && !self.IsMine)
             {
                 self.dropEggs = false;
                 return;
             }
+
             orig(self);
         }
 
         private void Vulture_DropMask(On.Vulture.orig_DropMask orig, Vulture self, Vector2 violenceDir)
         {
-            if (!self.IsLocal())
+            if (OnlineManager.lobby is not null
+                && self.abstractCreature.GetOnlineCreature(out OnlineCreature onlineCreature)
+                && onlineCreature.isMine)
             {
-                //orig(self, violenceDir);
-                var opo = self.abstractCreature.GetOnlineObject();
-                if (opo is null) return;
-                opo.RunRPC(opo.Demask, violenceDir);
+                onlineCreature.RunRPC(onlineCreature.Demask, violenceDir);
                 return;
             }
+
             orig(self, violenceDir);
         }
 
         private void BigSpider_BabyPuff(On.BigSpider.orig_BabyPuff orig, BigSpider self)
         {
-            if (!self.IsLocal())
+            if (OnlineManager.lobby is not null && !self.IsMine)
             {
                 self.spewBabies = true;
                 return;
             }
+
             orig(self);
         }
     }

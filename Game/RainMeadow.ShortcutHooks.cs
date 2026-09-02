@@ -1,10 +1,9 @@
-﻿using Mono.Cecil.Cil;
-using MonoMod.Cil;
-using RWCustom;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
+using RWCustom;
 
 namespace RainMeadow
 {
@@ -128,31 +127,6 @@ namespace RainMeadow
             }
         }
 
-        // prevent creature from being spit out of a shortcut if we don't own it
-        // owner will send us an RPC to spit it out.
-        private void ShortcutHandler_Update1(On.ShortcutHandler.orig_Update orig, ShortcutHandler self)
-        {
-            try {
-                for (int i = self.transportVessels.Count - 1; i >= 0; i--)
-                {
-                    if (!self.transportVessels[i].creature.IsLocal())
-                    {
-                        Room realized_room = self.transportVessels[i].room.realizedRoom;
-                        IntVector2 next_pos = ShortcutHandler.NextShortcutPosition(self.transportVessels[i].pos, self.transportVessels[i].lastPos, realized_room);
-                        if (realized_room.GetTile(next_pos).Terrain == Room.Tile.TerrainType.ShortcutEntrance) {
-                            self.transportVessels[i].wait = 5;
-                        }
-                    }
-                }
-            } catch (Exception err) {
-                RainMeadow.Error(err);
-            }
-
-            orig(self);
-        }
-
-
-
         // Prevent creatures from entering a room if their online counterpart has not yet entered!
         private bool ShortcutHandlerOnVesselAllowedInRoom(On.ShortcutHandler.orig_VesselAllowedInRoom orig, ShortcutHandler self, ShortcutHandler.Vessel vessel)
         {
@@ -168,9 +142,8 @@ namespace RainMeadow
             }
 
             var connectedObjects = vessel.creature.abstractCreature.GetAllConnectedObjects();
-            if (connectedObjects.All(x => x.IsLocal())) {
+            if (connectedObjects.All(apo => apo.IsMine))
                 return result; 
-            }
 
             foreach (var apo in connectedObjects)
             {

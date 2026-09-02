@@ -1,15 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using Kittehface.Framework20;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using MonoMod.Utils;
 using RainMeadow.UI.Components;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace RainMeadow
@@ -401,9 +398,7 @@ namespace RainMeadow
                     c.EmitDelegate((List<PhysicalObject>[] objs, RoomSpecificScript.SU_C04StartUp startup) =>
                     {
                         if (isStoryMode(out _))
-                        {
-                            return objs.Select(x => x.Where(y => y?.IsLocal() ?? true).ToList()).ToArray();
-                        }
+                            return objs.Select(x => x.Where(y => y?.IsMine != false).ToList()).ToArray();
 
                         return objs;
                     });
@@ -711,30 +706,16 @@ namespace RainMeadow
 
         private void RoomCamera_Update1(On.RoomCamera.orig_Update orig, RoomCamera self)
         {
-            if (ModManager.JollyCoop)
+            if (OnlineManager.lobby is not null && ModManager.JollyCoop)
             {
                 if (self.cameraTriggerCooldown > 0)
-                {
                     self.cameraTriggerCooldown--;
-                }
 
-                if (self.hud != null)
+                if (self is { hud: not null, followAbstractCreature.realizedCreature: Player player })
                 {
-                    if (self.followAbstractCreature != null)
-                    {
-                        if (self.followAbstractCreature.realizedCreature != null)
-                        {
-                            if (self.followAbstractCreature.realizedCreature is Player p)
-                            {
-                                if (self.hud?.owner != p && p.IsLocal())
-                                {
-                                    self.hud!.owner = p;
-                                }
-                            }
-                        }
-                    }
+                    if (self.hud.owner != player && player.IsMine)
+                        self.hud.owner = player;
                 }
-
             }
 
             orig(self);

@@ -1,17 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using IL.RWCustom;
-using Menu;
-using Mono.Cecil.Cil;
-using MonoMod.Cil;
-using MonoMod.RuntimeDetour;
-using MoreSlugcats;
-using RainMeadow.Arena.ArenaOnlineGameModes.ArenaChallengeModeNS;
 using RainMeadow.Arena.ArenaOnlineGameModes.TeamBattle;
-using RainMeadow.UI;
-using RainMeadow.UI.Components;
 using UnityEngine;
 
 namespace RainMeadow;
@@ -99,18 +86,19 @@ public class AmoebaSummonBehavior(VoidSpawn owner) : VoidSpawn.Behavior(owner)
                     || realizedPlayer.room.abstractRoom.index != voidSpawn.room.abstractRoom.index)
                     continue;
 
-                if (player.IsLocal(out var oe))
+                OnlineCreature onlineCreature = player.GetOnlineCreature()!;
+                if (onlineCreature.isMine)
                 {
                     ownerPlayer = player.realizedCreature as Player;
                     continue;
                 }
                 if (!voidSpawn.room.game.GetArenaGameSession.arenaSitting.gameTypeSetup.spearsHitPlayers)
                     continue;
-                
+
                 if (TeamBattleMode.IsTeamBattleMode(out var tb))
                 {
                     ArenaTeamClientSettings? playerTeam =
-                        ArenaHelpers.GetDataSettings<ArenaTeamClientSettings>(oe!.owner);
+                        ArenaHelpers.GetDataSettings<ArenaTeamClientSettings>(onlineCreature.owner);
                     if (playerTeam != null && playerTeam.team == arena.arenaTeamClientSettings.team)
                         continue;
                 }

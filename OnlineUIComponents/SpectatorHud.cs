@@ -213,7 +213,7 @@ namespace RainMeadow
                 return;
             }
 
-            OnlineManager.mePlayer.isActuallySpectating = spectatee != null && !spectatee.IsLocal();
+            OnlineManager.mePlayer.isActuallySpectating = spectatee?.IsMine == false;
             if (spectatee != null)
             {
                 camera.followAbstractCreature = spectatee;

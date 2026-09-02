@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Generic;
-using MonoMod.Cil;
 using Mono.Cecil.Cil;
+using MonoMod.Cil;
 using UnityEngine;
 
 namespace RainMeadow
@@ -33,64 +32,71 @@ namespace RainMeadow
                     i++;
                     cursor.MoveBeforeLabels();
                     cursor.Emit(OpCodes.Ldarg_0);
-                    cursor.EmitDelegate((bool Continue, Scavenger self) =>
-                    {
-                        return Continue || !self.IsLocal();
-                    });
+                    cursor.EmitDelegate((bool @continue, Scavenger self) => OnlineManager.lobby is null || @continue || !self.IsMine);
                 }
 
                 RainMeadow.Debug($"Replace {i} ScavengerAnimation.Continue checks in {ctx.Method.Name}");
             }
-            catch (Exception except)
+            catch (Exception exception)
             {
-                RainMeadow.Error(except);
+                RainMeadow.Error(exception);
             }
         }
 
-        public Tracker.CreatureRepresentation Scavenger_ForcedLookCreature(On.Scavenger.orig_ForcedLookCreature orig, global::Scavenger self)
+        public Tracker.CreatureRepresentation? Scavenger_ForcedLookCreature(
+            On.Scavenger.orig_ForcedLookCreature orig,
+            Scavenger self)
         {
-            if (!self.IsLocal())
-            {
-                return null!; // we'll recieve the lookcreature from state
-            }
+            // we'll recieve the lookcreature from state
+            if (OnlineManager.lobby is not null && !self.IsMine) return null;
 
             return orig(self);
         }
 
         public bool Scavenger_ArrangeInventory(On.Scavenger.orig_ArrangeInventory orig, Scavenger self)
         {
-            if (!self.IsLocal()) return false;
+            if (OnlineManager.lobby is not null && !self.IsMine) return false;
             return orig(self);
         }
 
-        public void Scavenger_TryThrow_BodyChunk_ViolenceType_Nullable1(On.Scavenger.orig_TryThrow_BodyChunk_ViolenceType_Nullable1 orig, Scavenger self, BodyChunk aimChunk, ScavengerAI.ViolenceType violenceType, Vector2? aimPosition)
+        public void Scavenger_TryThrow_BodyChunk_ViolenceType_Nullable1(
+            On.Scavenger.orig_TryThrow_BodyChunk_ViolenceType_Nullable1 orig,
+            Scavenger self,
+            BodyChunk aimChunk,
+            ScavengerAI.ViolenceType violenceType,
+            Vector2? aimPosition)
         {
-            if (!self.IsLocal()) return;
+            if (OnlineManager.lobby is not null && !self.IsMine) return;
             orig(self, aimChunk, violenceType, aimPosition);
         }
 
 
         public void Scavenger_Throw(On.Scavenger.orig_Throw orig, Scavenger self, Vector2 throwDir)
         {
-            if (!self.IsLocal()) return;
+            if (OnlineManager.lobby is not null && !self.IsMine) return;
             orig(self, throwDir);
         }
 
         public void Scavenger_TryToMeleeCreature(On.Scavenger.orig_TryToMeleeCreature orig, Scavenger self)
         {
-            if (!self.IsLocal()) return;
+            if (OnlineManager.lobby is not null && !self.IsMine) return;
             orig(self);
         }
 
         private void ScavengerAbstractAI_InitGearUp(On.ScavengerAbstractAI.orig_InitGearUp orig, ScavengerAbstractAI self)
         {
-            if (OnlineManager.lobby != null && (OnlinePhysicalObject.creatingRemoteObject || !self.parent.IsLocal())) return;
+            if (OnlineManager.lobby is not null
+                && (OnlinePhysicalObject.creatingRemoteObject || !self.parent.IsMine))
+            {
+                return;
+            }
+
             orig(self);
         }
 
         private void ScavengerAbstractAI_ReGearInDen(On.ScavengerAbstractAI.orig_ReGearInDen orig, ScavengerAbstractAI self)
         {
-            if (OnlineManager.lobby != null && (OnlinePhysicalObject.creatingRemoteObject || !self.parent.IsLocal())) return;
+            if (OnlineManager.lobby is not null && (OnlinePhysicalObject.creatingRemoteObject || !self.parent.IsLocal())) return;
             orig(self);
         }
     }

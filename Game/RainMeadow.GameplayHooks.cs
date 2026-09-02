@@ -1,13 +1,10 @@
+using System;
+using System.Linq;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using MonoMod.Utils;
 using RWCustom;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using RWCustom;
 
 namespace RainMeadow
 {
@@ -169,10 +166,7 @@ namespace RainMeadow
                     i => i.MatchBrfalse(out skip));
 
                 c.Emit(OpCodes.Ldarg_0);
-                c.EmitDelegate((JokeRifle self) =>
-                {
-                    return !self.IsLocal();
-                });
+                c.EmitDelegate((JokeRifle self) => OnlineManager.lobby is not null && !self.IsMine);
                 c.Emit(OpCodes.Brtrue, skip);
             }
         }
@@ -294,23 +288,27 @@ namespace RainMeadow
             }
         }
 
-        private void SocialEventRecognizer_CreaturePutItemOnGround(On.SocialEventRecognizer.orig_CreaturePutItemOnGround orig,
-            SocialEventRecognizer self, PhysicalObject item, Creature creature)
+        private void SocialEventRecognizer_CreaturePutItemOnGround(
+            On.SocialEventRecognizer.orig_CreaturePutItemOnGround orig,
+            SocialEventRecognizer self,
+            PhysicalObject item,
+            Creature creature)
         {
-
             orig(self, item, creature);
-            if (OnlineManager.lobby is null) return;
-            if (!creature.IsLocal()) return;
 
-            if (RoomSession.map.TryGetValue(creature.room.abstractRoom, out var roomSession))
+            if (OnlineManager.lobby is null)
+                return;
+
+            if (RoomSession.map.TryGetValue(creature.room.abstractRoom, out RoomSession roomSession)
+                && creature.abstractCreature.GetOnlineCreature(out OnlineCreature oc)
+                && oc.isMine
+                && item.abstractPhysicalObject.GetOnlineObject(out OnlinePhysicalObject opo))
             {
-                if (creature.abstractCreature.GetOnlineCreature(out OnlineCreature? oc) &&
-                    item.abstractPhysicalObject.GetOnlineObject(out OnlinePhysicalObject? opo))
-                {
-                    oc?.BroadcastRPCInRoom(roomSession.CreaturePutItemOnGround,
-                        opo.id, oc.id);
-                }
-
+                oc.BroadcastRPCInRoom(
+                    roomSession.CreaturePutItemOnGround,
+                    opo.id,
+                    oc.id
+                );
             }
         }
 
@@ -455,10 +453,13 @@ namespace RainMeadow
             }
             orig(self);
         }
+
         private void Spear_makeNeedle(On.Spear.orig_Spear_makeNeedle orig, Spear self, int type, bool active)
         {
             // apo.realize defaults to inactive even if remote is active
-            if (!self.IsLocal()) active = self.spearmasterNeedle_hasConnection;
+            if (OnlineManager.lobby is not null && !self.IsMine)
+                active = self.spearmasterNeedle_hasConnection;
+
             orig(self, type, active);
         }
 

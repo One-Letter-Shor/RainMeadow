@@ -1,13 +1,14 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using HUD;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 using RWCustom;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
 using UnityEngine;
+
 namespace RainMeadow
 {
     public partial class RainMeadow
@@ -873,7 +874,7 @@ namespace RainMeadow
 
         private void Oracle_SetUpSwarmers(On.Oracle.orig_SetUpSwarmers orig, Oracle self)
         {
-            if (!self.IsLocal()) return;
+            if (OnlineManager.lobby is not null && !self.IsMine) return;
             orig(self);
         }
 
@@ -908,7 +909,7 @@ namespace RainMeadow
 
         private void SLOracleWakeUpProcedure_SwarmerEnterRoom(On.SLOracleWakeUpProcedure.orig_SwarmerEnterRoom orig, SLOracleWakeUpProcedure self, IntVector2 tilePos)
         {
-            if (!self.SLOracle.IsLocal()) return;
+            if (OnlineManager.lobby is not null && !self.SLOracle.IsMine) return;
             orig(self, tilePos);
         }
 
@@ -951,7 +952,10 @@ namespace RainMeadow
                     i => i.MatchStloc(4)
                 );
                 c.Emit(OpCodes.Ldarg_0);
-                c.EmitDelegate((SLOracleWakeUpProcedure wakeUpProcedure) => wakeUpProcedure.SLOracle?.IsLocal() ?? true);
+                c.EmitDelegate(
+                    (SLOracleWakeUpProcedure wakeUpProcedure) =>
+                        OnlineManager.lobby is null || wakeUpProcedure.SLOracle?.IsMine != false
+                );
                 c.Emit(OpCodes.Brfalse, skip);
                 c.GotoNext(MoveType.After,
                     i => i.MatchLdarg(0),
@@ -1036,7 +1040,9 @@ namespace RainMeadow
                     i => i.MatchStloc(5)
                 );
                 c.Emit(OpCodes.Ldarg_0);
-                c.EmitDelegate((SLOracleBehavior behavior) => behavior.oracle?.IsLocal() ?? true);
+                c.EmitDelegate(
+                    (SLOracleBehavior behavior) => OnlineManager.lobby is null || behavior.oracle?.IsMine != false
+                );
                 c.Emit(OpCodes.Brfalse, skip);
                 c.GotoNext(MoveType.AfterLabel,
                     i => i.MatchLdarg(0),
@@ -1053,17 +1059,32 @@ namespace RainMeadow
         // don't drop prematurely
         private void SLOracleBehavior_Update1(On.SLOracleBehavior.orig_Update orig, SLOracleBehavior self, bool eu)
         {
-            var holdingObject = self.holdingObject;
+            if (OnlineManager.lobby is not null && !self.oracle.IsMine)
+            {
+                PhysicalObject previousHoldingObject = self.holdingObject;
+                orig(self, eu);
+                self.holdingObject = previousHoldingObject;
+                return;
+            }
+
             orig(self, eu);
-            if (!self.oracle.IsLocal()) self.holdingObject = holdingObject;
         }
 
         // don't drop prematurely
-        private void SLOracleBehaviorHasMark_Update(On.SLOracleBehaviorHasMark.orig_Update orig, SLOracleBehaviorHasMark self, bool eu)
+        private void SLOracleBehaviorHasMark_Update(
+            On.SLOracleBehaviorHasMark.orig_Update orig,
+            SLOracleBehaviorHasMark self,
+            bool eu)
         {
-            var holdingObject = self.holdingObject;
+            if (OnlineManager.lobby is not null && !self.oracle.IsMine)
+            {
+                PhysicalObject previousHoldingObject = self.holdingObject;
+                orig(self, eu);
+                self.holdingObject = previousHoldingObject;
+                return;
+            }
+
             orig(self, eu);
-            if (!self.oracle.IsLocal()) self.holdingObject = holdingObject;
         }
 
         // consider syncing via RPC
@@ -2235,6 +2256,7 @@ namespace RainMeadow
         private void VoidSeaScene_Update(On.VoidSea.VoidSeaScene.orig_Update orig, VoidSea.VoidSeaScene self, bool eu)
         {
             orig(self, eu);
+
             if (isStoryMode(out _))
             {
                 foreach (var playerAvatar in OnlineManager.lobby.playerAvatars.Select(kv => kv.Value))
@@ -2243,7 +2265,7 @@ namespace RainMeadow
                     if (playerAvatar.FindEntity(true) is OnlinePhysicalObject opo && opo.apo is AbstractCreature ac && ac.realizedObject is not null)
                     {
                         // do things with the AbstractCreature we found
-                        if (!ac.IsLocal() && opo.apo.realizedObject.Submersion > 0.5f)
+                        if (!ac.IsMine && opo.apo.realizedObject.Submersion > 0.5f)
                         {
                             Vector2 position = ac.realizedCreature.bodyChunks[0].pos;
                             RainMeadow.Debug("Removed onlinePlayer avatar on submersion at pos: " + position);
@@ -2251,11 +2273,11 @@ namespace RainMeadow
                             opo.apo.realizedObject.room.PlaySound(SoundID.MENU_Karma_Ladder_Hit_Upper_Cap, 0f, 3f, 1f);
                             opo.apo.realizedObject.RemoveFromRoom();
                         }
-                        else if (ac.IsLocal() && opo.apo.realizedObject.Submersion > 0.5f)
+                        else if (ac.IsMine && opo.apo.realizedObject.Submersion > 0.5f)
                         {
                             inVoidSea = true;
                         }
-                        else if (ac.IsLocal() && !(opo.apo.realizedObject.Submersion > 0.5f))
+                        else if (ac.IsMine && !(opo.apo.realizedObject.Submersion > 0.5f))
                         {
                             inVoidSea = false;
                         }

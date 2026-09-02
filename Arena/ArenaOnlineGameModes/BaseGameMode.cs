@@ -630,9 +630,9 @@ namespace RainMeadow
             else
             {
                 self.AddPart(new Pointing(self));
-                foreach (AbstractCreature localPlayer in session.Players.Where(x => x != null && x.IsLocal()).ToArray())
+                foreach (AbstractCreature playerAC in session.Players.Where(ac => ac?.IsMine == true)) // Is this player ac null check even needed?
                 {
-                    var psmh = new HUD.PlayerSpecificMultiplayerHud(self, session, localPlayer)
+                    var psmh = new HUD.PlayerSpecificMultiplayerHud(self, session, playerAC)
                     {
                         cornerPos = new Vector2(self.rainWorld.options.ScreenSize.x - self.rainWorld.options.SafeScreenOffset.x,
                                     20f + self.rainWorld.options.SafeScreenOffset.y),

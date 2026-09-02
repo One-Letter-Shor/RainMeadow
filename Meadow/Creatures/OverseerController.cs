@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
-using HarmonyLib;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
@@ -99,11 +98,11 @@ namespace RainMeadow
             {
 
                 lifetime++;
-                if (lifetime > ShowTime && overseer.IsLocal())
+                if (lifetime > ShowTime && overseer.IsMine)
                 {
                     stillRelevant = false;
                 }
-                
+
                 if (stillRelevant && overseer.room == this.room && overseer.mode != Overseer.Mode.Zipping)
                 {
                     fade = Custom.LerpAndTick(fade, 1f, 0.9f, 0.05f);
@@ -113,7 +112,7 @@ namespace RainMeadow
                     fade = Custom.LerpAndTick(fade, 0f, 0.01f, 0.1f);
                 }
 
-                if (overseer.IsLocal())
+                if (overseer.IsMine)
                 {
                     if (CreatureController.creatureControllers.TryGetValue(overseer, out var p) && p is OverseerController controller)
                     {
@@ -571,7 +570,7 @@ namespace RainMeadow
                     }
                 }
 
-                if (self.IsLocal())
+                if (self.IsMine)
                 {
                     if (controller.cursor is null || controller.cursor.room != room)
                     {

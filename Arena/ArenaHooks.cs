@@ -288,7 +288,8 @@ namespace RainMeadow
                             player.inShortcut = true; // necessary for sync
 
                             // wait in there till everyone is ready.
-                            if (player.IsLocal()) self.shortcuts.transportVessels[i].wait = 1;
+                            if (player.IsMine)
+                                self.shortcuts.transportVessels[i].wait = 1;
                         }
                     }
                 }
@@ -329,7 +330,7 @@ namespace RainMeadow
                 {
                     // Set the level artificially to 0.5 when in arena, no matter the real level... unless it's max ripple.
                     cursor.Emit(OpCodes.Ldarg_0);
-                    cursor.EmitDelegate((float orig, Player player) => isArenaMode(out _) && !player.IsLocal() && (includeRippleMax || orig < 5) ? 0.5f : orig);
+                    cursor.EmitDelegate((float orig, Player player) => isArenaMode(out _) && !player.IsMine && (includeRippleMax || orig < 5) ? 0.5f : orig);
                 }
             }
             catch (Exception e)
@@ -356,7 +357,7 @@ namespace RainMeadow
                 {
                     // If it's areana mode, don't spawn 4373 bajilion effects
                     cursor.Emit(OpCodes.Ldarg_0);
-                    cursor.EmitDelegate((Player player) => isArenaMode(out _) && !player.IsLocal()); // && player.rippleLevel < 5
+                    cursor.EmitDelegate((Player player) => isArenaMode(out _) && !player.IsMine); // && player.rippleLevel < 5
                     cursor.Emit(OpCodes.Brtrue, label);
                 }
                 else
@@ -381,23 +382,23 @@ namespace RainMeadow
                 cursor.GotoNext(MoveType.After, x => x.MatchBneUn(out label));
                 cursor.Emit(OpCodes.Ldarg_0);
                 cursor.Emit(OpCodes.Ldloc, 4);
-                cursor.EmitDelegate(delegate (Player self, int i)
+                cursor.EmitDelegate((Player self, int i) =>
                 {
-                    if (!isArenaMode(out var arena)) return true;
+                    if (!isArenaMode(out ArenaOnlineGameMode arenaOnline)) return true;
 
                     VoidSpawn spawn = self.room.voidSpawns[i];
                     if (!self.room.game.GetArenaGameSession.arenaSitting.gameTypeSetup.spearsHitPlayers
                             || (TeamBattleMode.IsTeamBattleMode(out _)
                                 && ArenaHelpers.CheckSameTeam(self.abstractCreature.GetOnlineCreature()?.owner, spawn.abstractPhysicalObject.GetOnlineObject()?.owner)
-                                && !arena.friendlyFire))
+                                && !arenaOnline.friendlyFire))
                         return false; // don't attack friendlies !
-                    if (!self.IsLocal())
+                    if (!self.IsMine)
                     {
-                        if (AmoebaSummonBehavior.GetPriority(arena, spawn, self) > 1)
-                                spawn.playerProximityTime = 10; //slow down when near the player (if not dead or in ripple space)
+                        if (AmoebaSummonBehavior.GetPriority(arenaOnline, spawn, self) > 1)
+                            spawn.playerProximityTime = 10; //slow down when near the player (if not dead or in ripple space)
                         return false;
                     }
-                    if (spawn.IsLocal() && spawn.behavior != null)
+                    if (spawn.IsMine && spawn.behavior != null)
                         return false; //dont use death effect if amoeba was created by player and dont slow down the voidspawn!
                     return true;
                 });
@@ -464,10 +465,7 @@ namespace RainMeadow
 
                     cursor.Emit(OpCodes.Ldarg_0);
 
-                    cursor.EmitDelegate(delegate (Player self)
-                    {
-                        return self.IsLocal();
-                    });
+                    cursor.EmitDelegate((Player self) => OnlineManager.lobby is null || self.IsMine);
 
                     cursor.Emit(OpCodes.Brfalse, skipDeathEffectLabel);
                 }
@@ -657,12 +655,17 @@ namespace RainMeadow
         private const float VANILLA_ARTI_STUNTHROUGH_RANGE = 60f;
         private const float ARTI_PARRY_MAX_COOLDOWN = 40f;
         private const int ARTI_PARRY_EXTRA_FRAMES = 4;
-        private bool IsArtiInExtraParryFrames(Player player) => isArenaMode(out var arenaOnline)
-            && player.IsLocal()
-            && arenaOnline.artiParryLeniency
-            && arenaOnline.artiParryDistanceMult > 0
-            && player.pyroParryCooldown < ARTI_PARRY_MAX_COOLDOWN
-            && player.pyroParryCooldown > (ARTI_PARRY_MAX_COOLDOWN - ARTI_PARRY_EXTRA_FRAMES);
+
+        private bool IsArtiInExtraParryFrames(Player player)
+        {
+            return isArenaMode(out ArenaOnlineGameMode arenaOnline)
+                && player.IsMine
+                && arenaOnline.artiParryLeniency
+                && arenaOnline.artiParryDistanceMult > 0
+                && player.pyroParryCooldown < ARTI_PARRY_MAX_COOLDOWN
+                && player.pyroParryCooldown > (ARTI_PARRY_MAX_COOLDOWN - ARTI_PARRY_EXTRA_FRAMES);
+        }
+
         private void Player_ClassMechanicsArtificer_ArtificerConfiguration(ILContext il)
         {
             try
@@ -763,7 +766,10 @@ namespace RainMeadow
 
                 cursor.Emit(OpCodes.Ldarg_0);
                 cursor.Emit(OpCodes.Ldloc, 20);
-                cursor.EmitDelegate((Player player, Weapon weapon) => weapon.thrownBy == player || !player.IsLocal());
+                cursor.EmitDelegate(
+                    (Player player, Weapon weapon) =>
+                        weapon.thrownBy == player || OnlineManager.lobby is not null && !player.IsMine
+                );
                 cursor.Emit(OpCodes.Brtrue, toAfterWeaponAddedToList);
 
                 // Change the stun range value
@@ -1001,17 +1007,17 @@ namespace RainMeadow
         public void Player_CamoUpdate2(On.Player.orig_CamoUpdate orig, Player self)
         {
             orig(self);
+
             if (!isArenaMode(out _))
                 return;
+
             bool slowDownCharge = false;
             foreach (VoidSpawn voidSpawn in self.room.voidSpawns)
             {
-                if (!voidSpawn.IsLocal() || !self.IsLocal())
+                if (!voidSpawn.IsMine || !self.IsMine)
                     continue;
                 if (voidSpawn.behavior != null) //player actually created it
                     slowDownCharge = true;
-                // if (voidSpawn.abstractPhysicalObject.rippleLayer != self.abstractPhysicalObject.rippleLayer)
-                //     voidSpawn.startFadeOut = true;
             }
             if (slowDownCharge)
             {
@@ -1027,28 +1033,24 @@ namespace RainMeadow
         }
 
         public void Player_SpawnDynamicWarpPoint(
-    On.Player.orig_SpawnDynamicWarpPoint orig,
-    Player self,
-    string forcedDestination,
-    Vector2? forcedDestinationPosition
-)
+            On.Player.orig_SpawnDynamicWarpPoint orig,
+            Player self,
+            string forcedDestination,
+            Vector2? forcedDestinationPosition)
         {
-            if (!isArenaMode(out var arena))
+            if (!isArenaMode(out ArenaOnlineGameMode arenaOnline))
             {
                 orig(self, forcedDestination, forcedDestinationPosition);
                 return;
             }
-            if (arena.countdownInitiatedHoldFire)
+
+            if (arenaOnline.countdownInitiatedHoldFire || !arenaOnline.voidMasterEnabled)
             {
                 self.FailToSpawnWarpPoint(Player.BlackListReason.HideReasoning);
                 return;
             }
-            if (!arena.voidMasterEnabled)
-            {
-                self.FailToSpawnWarpPoint(Player.BlackListReason.HideReasoning);
+            if (!self.IsMine)
                 return;
-            }
-            if (!self.IsLocal()) return;
 
             float requiredCharge = self.usableCamoLimit * voidSpawnTax;
 
@@ -1081,10 +1083,10 @@ namespace RainMeadow
                 VoidSpawn.SpawnType.RippleAmoeba
             )
             {
-                timeUntilFadeout = arena.amoebaDuration * 40,
+                timeUntilFadeout = arenaOnline.amoebaDuration * 40,
             };
             voidSpawn.behavior = new AmoebaSummonBehavior(voidSpawn);
-            voidSpawn.swimSpeed = arena.voidSpawnLethalityFactor / 2;
+            voidSpawn.swimSpeed = arenaOnline.voidSpawnLethalityFactor / 2;
             room.abstractRoom.AddEntity(apo);
             RainMeadow.sSpawningNonTransferable = false;
 
@@ -1935,17 +1937,15 @@ namespace RainMeadow
                             object caller
                         ) =>
                         {
-                            if (OnlineManager.lobby != null)
+                            if (OnlineManager.lobby is not null)
                             {
-                                var onlineCreature = self.abstractPhysicalObject.GetOnlineObject();
-                                if (
-                                    onlineCreature != null
-                                    && !onlineCreature.isMine
-                                    && source.owner.IsLocal()
-                                )
+                                if (self.abstractCreature.GetOnlineCreature(out OnlineCreature selfOC)
+                                    && !selfOC.isMine
+                                    && source.owner.abstractPhysicalObject.GetOnlineObject(out OnlinePhysicalObject sourceOpo)
+                                    && sourceOpo.isMine)
                                 {
-                                    (onlineCreature as OnlineCreature)?.RPCCreatureViolence(
-                                        source.owner.abstractPhysicalObject.GetOnlineObject(),
+                                    selfOC.RPCCreatureViolence(
+                                        sourceOpo,
                                         hitChunk.index,
                                         hitAppendage,
                                         directionAndMomentum,
@@ -1955,6 +1955,7 @@ namespace RainMeadow
                                     );
                                 }
                             }
+
                             self.Violence(
                                 source,
                                 directionAndMomentum,
@@ -2146,32 +2147,24 @@ namespace RainMeadow
                 c.Emit(OpCodes.Ldarg_0);
                 c.Emit(OpCodes.Ldloc, physicalObjectVar);
                 c.EmitDelegate(
-                    (Player self, PhysicalObject po) =>
+                    (Player self, PhysicalObject ascendedObject) =>
                     {
-                        if (self.IsLocal() && OnlineManager.lobby != null)
+                        if (OnlineManager.lobby is null)
+                            return;
+
+                        if (self.abstractCreature.GetOnlineCreature(out OnlineCreature saintOC)
+                            && saintOC.isMine
+                            && ascendedObject.abstractPhysicalObject.GetOnlineObject(out OnlinePhysicalObject ascendedOpo)
+                            && !ascendedOpo.isMine)
                         {
-                            if (
-                                OnlinePhysicalObject.map.TryGetValue(
-                                    po.abstractPhysicalObject,
-                                    out var opo
-                                )
-                            )
+                            // Don't ascend our friends!
+                            if (ascendedObject is Creature ascendedCreature
+                                && self.FriendlyFireSafetyCandidate(ascendedCreature))
                             {
-                                if (opo.isMine)
-                                    return;
-                                var saint = self.abstractCreature.GetOnlineCreature();
-                                if (saint != null)
-                                {
-                                    // Don't ascend our friends!
-                                    if (po is Creature c && self.FriendlyFireSafetyCandidate(c))
-                                        return;
-                                    opo.owner.InvokeOnceRPC(RPCs.Creature_Die, opo, saint);
-                                }
-                                else
-                                {
-                                    opo.owner.InvokeOnceRPC(RPCs.Creature_Die, opo, null);
-                                }
+                                return;
                             }
+
+                            ascendedOpo.owner.InvokeOnceRPC(RPCs.Creature_Die, ascendedOpo, saintOC);
                         }
                     }
                 );
@@ -2900,7 +2893,9 @@ namespace RainMeadow
                     x => x.MatchBrtrue(out afterPush));
                 cursor.Emit(OpCodes.Ldarg_0);
                 cursor.Emit(OpCodes.Ldloc_0);
-                cursor.EmitDelegate((ShortcutHelper self, int i) => self.room.game.Players[i].IsLocal());
+                cursor.EmitDelegate(
+                    (ShortcutHelper self, int i) => OnlineManager.lobby is null || self.room.game.Players[i].IsMine
+                );
                 cursor.Emit(OpCodes.Brfalse, afterPush);
 
                 //Old: if (ModManager.ChallengeModule && room.world.game.IsArenaSession &&  room.world.game.GetArenaGameSession.arenaSitting.gameTypeSetup.gameType == DLCSharedEnums.GameTypeID.Challenge                 && !room.world.game.GetArenaGameSession.exitManager.ExitsOpen())

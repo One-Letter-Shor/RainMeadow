@@ -144,7 +144,7 @@ namespace RainMeadow
                     i => i.MatchBge(out skip)
                 );
                 c.Emit(OpCodes.Ldarg_0);
-                c.EmitDelegate((MirosBirdAbstractAI self) => OnlineManager.lobby == null || self.parent.IsLocal());
+                c.EmitDelegate((MirosBirdAbstractAI self) => OnlineManager.lobby is null || self.parent.IsMine);
                 c.Emit(OpCodes.Brfalse, skip);
             }
             catch (Exception e)
@@ -155,7 +155,10 @@ namespace RainMeadow
 
         private bool AbstractCreature_Quantify(Func<AbstractCreature, bool> orig, AbstractCreature self)
         {
-            if (!self.IsLocal()) return false; // do not attempt to delete remote creatures
+            // do not attempt to delete remote creatures
+            if (OnlineManager.lobby is not null && !self.IsMine)
+                return false;
+
             return orig(self);
         }
 

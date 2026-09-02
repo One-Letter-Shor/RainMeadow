@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Menu;
-using MoreSlugcats;
-using RWCustom;
 using UnityEngine;
 
 namespace RainMeadow
@@ -60,7 +58,7 @@ namespace RainMeadow
 
             if (ModManager.MSC) storeItems.Add((JokerRifle, 50, null));
 
-            me = game.Players.FirstOrDefault(x => x is not null && x.IsLocal());
+            me = game.Players.FirstOrDefault(playerAC => playerAC?.IsMine == true);
 
             for (int i = 0; i < storeItems.Count; i++)
             {

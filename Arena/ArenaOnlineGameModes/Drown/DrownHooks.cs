@@ -20,7 +20,8 @@ namespace RainMeadow
         private void Player_checkInputDrown(On.Player.orig_checkInput orig, Player self)
         {
             orig(self);
-            if (DrownMode.IsDrownMode(out _) && self.IsLocal())
+
+            if (DrownMode.IsDrownMode(out _) && self.IsMine)
             {
                 if (ArenaHelpers.GetDataSettings<ArenaDrownClientSettings>(self.abstractCreature.GetOnlineCreature()?.owner)?.isInStore == true)
                     GameplayOverrides.StopPlayerMovement(self);
@@ -106,25 +107,28 @@ namespace RainMeadow
                 c.Emit(OpCodes.Ldloc, 18);
                 c.EmitDelegate((Player self, PhysicalObject po) =>
                 {
-                    if (self.IsLocal() && isArenaMode(out ArenaOnlineGameMode arena) && DrownMode.IsDrownMode(out _))
+                    if (!isArenaMode(out ArenaOnlineGameMode arenaOnline) || !DrownMode.IsDrownMode(out _))
+                        return;
+
+                    if (self.IsMine)
                     {
                         try
                         {
-                            Creature creat = (po as Creature);
-                            creat.SetKillTag(self.abstractCreature);
-                            ArenaSitting sitting = self.room.game.GetArenaGameSession.arenaSitting;
-                            IconSymbol.IconSymbolData iconSymbolData = CreatureSymbol.SymbolDataFromCreature(creat.abstractCreature);
-                            int arenaPlayer = ArenaHelpers.FindOnlinePlayerNumber(arena, OnlineManager.mePlayer);
+                            Creature creature = (Creature)po;
+                            creature.SetKillTag(self.abstractCreature);
+                            ArenaSitting arenaSitting = self.room.game.GetArenaGameSession.arenaSitting;
+                            IconSymbol.IconSymbolData trophy = CreatureSymbol.SymbolDataFromCreature(creature.abstractCreature);
 
-                            int index = MultiplayerUnlocks.SandboxUnlockForSymbolData(iconSymbolData).Index;
-                            if (index >= 0)
-                            {
-                                sitting.players[arenaPlayer].AddSandboxScore(sitting.gameTypeSetup.killScores[index]);
-                            }
-                            else
-                            {
-                                sitting.players[arenaPlayer].AddSandboxScore(0);
-                            }
+                            ArenaSitting.ArenaPlayer? arenaPlayer = ArenaHelpers.FindArenaPlayerByOnlinePlayer(
+                                arenaOnline,
+                                arenaSitting,
+                                OnlineManager.mePlayer
+                            );
+                            int index = MultiplayerUnlocks.SandboxUnlockForSymbolData(trophy).Index;
+
+                            // TODO: This should probably make ArenaGameSession.Killing handle score.
+                            if (arenaPlayer is not null && index != -1)
+                                arenaPlayer.AddSandboxScore(arenaSitting.gameTypeSetup.killScores[index]);
 
                         }
                         catch (Exception e)

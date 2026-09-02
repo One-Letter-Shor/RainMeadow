@@ -1,14 +1,12 @@
-using Mono.Cecil.Cil;
-using MonoMod.Cil;
-using MonoMod.RuntimeDetour;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Watcher;
-using System.Runtime.Remoting.Messaging;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
+using MonoMod.RuntimeDetour;
 using UnityEngine;
-using static RainMeadow.MeadowProgression;
+using Watcher;
 
 namespace RainMeadow
 {
@@ -578,10 +576,16 @@ namespace RainMeadow
                 // if (room.physicalObjects[i][j] is local Player)
                 var c = new ILCursor(il);
                 var skip = il.DefineLabel();
-                c.GotoNext(moveType: MoveType.After,
+                c.GotoNext(
+                    MoveType.After,
                     i => i.MatchIsinst<Player>()
-                    );
-                c.EmitDelegate((Player? player) => player?.IsLocal() is true ? player : null);  // null if remote player
+                );
+                c.EmitDelegate((Player? player) =>
+                    {
+                        if (OnlineManager.lobby is not null && player?.IsMine == false) return null;
+                        return player;
+                    }
+                ); // null if remote player
             }
             catch (Exception e)
             {
@@ -678,14 +682,15 @@ namespace RainMeadow
                 // if (creature is Player && creature.IsLocal() && shortCut.shortCutType == ShortcutData.Type.RoomExit)
                 var c = new ILCursor(il);
                 var skip = il.DefineLabel();
-                c.GotoNext(moveType: MoveType.After,
+                c.GotoNext(
+                    MoveType.After,
                     i => i.MatchLdarg(1),
                     i => i.MatchIsinst<Player>(),
                     i => i.MatchBrfalse(out skip)
-                    );
+                );
                 c.MoveAfterLabels();
                 c.Emit(OpCodes.Ldarg_1);
-                c.EmitDelegate((Creature creature) => creature.IsLocal());
+                c.EmitDelegate((Creature creature) => OnlineManager.lobby is null || creature.IsMine);
                 c.Emit(OpCodes.Brfalse, skip);
             }
             catch (Exception e)
